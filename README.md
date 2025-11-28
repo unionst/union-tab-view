@@ -1,14 +1,19 @@
 # UnionTabBar
 
-A beautiful, adaptive tab bar package for iOS that automatically provides a stunning glass-effect floating tab bar on iOS 26+ while gracefully falling back to a clean custom tab bar on earlier versions.
+A SwiftUI package that gives you iOS 26's **Liquid Glass tab bar** with fully custom tab item views.
 
-## Features
+The standard iOS 26 `TabView` only supports system-provided tab items. This package lets you use the beautiful floating glass effect while rendering **any custom SwiftUI view** for each tab—icons, labels, badges, animations, whatever you want.
 
-- **Adaptive Design**: Automatically uses iOS 26's `glassEffect` API when available, falls back gracefully on iOS 17-25
-- **Native Sliding Animation**: Uses `UISegmentedControl` under the hood for buttery-smooth selection animations
-- **Fully Customizable**: Complete control over tab item appearance via `@ViewBuilder` closures
-- **Simple API**: Drop-in replacement for `TabView` with minimal code changes
-- **Safe Area Aware**: Properly handles safe area insets on all device types
+## Why Use This?
+
+On iOS 26, Apple introduced a gorgeous floating glass tab bar with a sliding selection indicator. But there's a catch: you're limited to the system's `Tab` API with predefined icons and labels.
+
+**UnionTabBar solves this** by recreating the liquid glass aesthetic with full `@ViewBuilder` support for tab items. You get:
+
+- ✨ **Liquid Glass Effect** — The beautiful `glassEffect(.regular.interactive())` capsule
+- 🎚️ **Native Sliding Indicator** — Smooth animated selection via `UISegmentedControl`
+- 🎨 **Custom Tab Items** — Any SwiftUI view: custom icons, animated badges, profile avatars, etc.
+- 📱 **Adaptive** — Falls back to a clean custom tab bar on iOS 17-25
 
 ## Requirements
 
