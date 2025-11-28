@@ -97,6 +97,31 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         TabView(selection: $selection) {
             content
         }
+        .safeAreaInset(edge: .bottom) {
+            legacyTabBar
+                .ignoresSafeArea()
+                .padding(.horizontal, 20)
+                .padding(.bottom, -bottomInsets + 28)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.safeAreaInsets.bottom
+                } action: { value in
+                    bottomInsets = value
+                }
+        }
+    }
+
+    private var legacyTabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                tabItemView(tab, selectedIndex == index)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 4)
+            }
+        }
+        .frame(height: 54)
+        .clipShape(Capsule())
+        .allowsHitTesting(false)
+        .padding(4)
     }
 }
 
@@ -166,23 +191,13 @@ public extension View {
             self
                 .toolbarVisibility(.hidden, for: .tabBar)
                 .tag(tab)
+                .safeAreaBar(edge: .bottom) {
+                    Text(".")
+                        .blendMode(.destinationOver)
+                        .frame(height: 55)
+                }
         } else {
             self.tag(tab)
-        }
-    }
-    
-    @ViewBuilder
-    func adaptiveTab<Tab: Hashable>(_ tab: Tab, title: String, systemImage: String) -> some View {
-        if #available(iOS 26, *) {
-            self
-                .toolbarVisibility(.hidden, for: .tabBar)
-                .tag(tab)
-        } else {
-            self
-                .tabItem {
-                    Label(title, systemImage: systemImage)
-                }
-                .tag(tab)
         }
     }
 }

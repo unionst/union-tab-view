@@ -1,144 +1,243 @@
 # UnionTabBar
 
-A beautiful glass-effect tab bar package for iOS 26+ built with SwiftUI and UIKit.
+A beautiful, adaptive tab bar package for iOS that automatically provides a stunning glass-effect floating tab bar on iOS 26+ while gracefully falling back to a clean custom tab bar on earlier versions.
+
+## Features
+
+- **Adaptive Design**: Automatically uses iOS 26's `glassEffect` API when available, falls back gracefully on iOS 17-25
+- **Native Sliding Animation**: Uses `UISegmentedControl` under the hood for buttery-smooth selection animations
+- **Fully Customizable**: Complete control over tab item appearance via `@ViewBuilder` closures
+- **Simple API**: Drop-in replacement for `TabView` with minimal code changes
+- **Safe Area Aware**: Properly handles safe area insets on all device types
+
+## Requirements
+
+- iOS 17.0+
+- Swift 6.0+
+- Xcode 16+
 
 ## Installation
 
-Add this package to your Xcode project using Swift Package Manager.
+Add this package to your Xcode project using Swift Package Manager:
 
-## Public API
-
-### Ready-to-Use Components
-
-#### `CustomTabBarWithOverlay`
-A glass-effect tab bar with overlay icons and text. Perfect for most use cases.
-
-```swift
-CustomTabBarWithOverlay(
-    activeTab: $activeTab,
-    activeTint: .blue,
-    inactiveTint: .primary
-)
-.frame(height: 55)
+```
+https://github.com/unionst/union-tab-bar.git
 ```
 
-#### `StyledImageTabBar`
-An image-rendered tab bar with custom styling using `ImageGlassTabBar` internally.
+## Usage
 
-```swift
-StyledImageTabBar(
-    activeTab: $activeTab,
-    activeTint: .blue,
-    barTint: .gray.opacity(0.15)
-)
-.frame(height: 55)
-```
+### Basic Usage with UnionTabView
 
-#### `FloatingTabBar`
-A floating circular indicator that shows the active tab icon with blur fade animation.
-
-```swift
-FloatingTabBar(
-    activeTab: $activeTab,
-    activeTint: .blue,
-    inactiveTint: .primary
-)
-```
-
-#### `CompactTabBar`
-Combines `CustomTabBarWithOverlay` and `FloatingTabBar` in a horizontal layout.
-
-```swift
-CompactTabBar(
-    activeTab: $activeTab,
-    activeTint: .blue,
-    inactiveTint: .primary
-)
-```
-
-### Advanced Components
-
-#### `ImageGlassTabBar`
-For full customization, use the generic `ImageGlassTabBar` with a custom `tabItemView` closure.
-
-```swift
-GeometryReader { geometry in
-    ImageGlassTabBar(
-        size: geometry.size,
-        activeTint: .blue,
-        barTint: .gray.opacity(0.15),
-        activeTab: $activeTab
-    ) { tab in
-        VStack(spacing: 3) {
-            Image(systemName: tab.symbol)
-                .font(.title3)
-            
-            Text(tab.rawValue)
-                .font(.system(size: 10))
-                .fontWeight(.medium)
-        }
-    }
-    .glassEffect(.regular.interactive(), in: .capsule)
-}
-```
-
-### Data Types
-
-#### `CustomTab`
-The enum representing tab items.
-
-```swift
-public enum CustomTab: String, CaseIterable {
-    case home
-    case search
-    case profile
-    
-    var symbol: String // SF Symbol for filled state
-    var actionSymbol: String // SF Symbol for outline state
-    var index: Int // Index in allCases
-}
-```
-
-### Extensions
-
-#### `View.blurFade(_:)`
-Applies a blur and fade animation effect.
-
-```swift
-view.blurFade(isActive)
-```
-
-## Example Usage
+The primary component is `UnionTabView`, which wraps your tab content and provides the adaptive tab bar:
 
 ```swift
 import SwiftUI
 import UnionTabBar
 
+enum RootTab: Hashable {
+    case home, explore, settings
+    
+    var title: String {
+        switch self {
+        case .home: "Home"
+        case .explore: "Explore"
+        case .settings: "Settings"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .home: "house.fill"
+        case .explore: "safari.fill"
+        case .settings: "gearshape.fill"
+        }
+    }
+}
+
 struct ContentView: View {
-    @State private var activeTab: CustomTab = .home
+    @State private var selectedTab: RootTab = .home
     
     var body: some View {
-        VStack {
-            HStack(spacing: 10) {
-                CustomTabBarWithOverlay(activeTab: $activeTab)
-                    .frame(height: 55)
+        UnionTabView(
+            selection: $selectedTab,
+            tabs: [.home, .explore, .settings]
+        ) {
+            NavigationStack { HomeView() }
+                .unionTab(RootTab.home)
+            
+            NavigationStack { ExploreView() }
+                .unionTab(RootTab.explore)
+            
+            NavigationStack { SettingsView() }
+                .unionTab(RootTab.settings)
+        } item: { tab, isSelected in
+            VStack(spacing: 4) {
+                Image(systemName: tab.icon)
+                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
                 
-                FloatingTabBar(activeTab: $activeTab)
+                Text(tab.title)
+                    .font(.system(size: 10, weight: .medium))
             }
-            .padding(.horizontal, 20)
+            .foregroundStyle(isSelected ? .primary : .secondary)
         }
     }
 }
 ```
 
-## Requirements
+### Parameters
 
-- iOS 18.0+ (symbols available on iOS 26+)
-- Swift 6.2+
-- Xcode 16+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `selection` | `Binding<Tab>` | Required | Binding to the currently selected tab |
+| `tabs` | `[Tab]` | Required | Array of all tabs in display order |
+| `barTint` | `Color` | `.gray.opacity(0.15)` | Tint color for the sliding selection indicator |
+| `content` | `@ViewBuilder` | Required | The tab content views |
+| `item` | `@ViewBuilder` | Required | Closure to render each tab item |
+
+### The `.unionTab()` Modifier
+
+Apply this modifier to each tab's content view:
+
+```swift
+NavigationStack { HomeView() }
+    .unionTab(RootTab.home)
+```
+
+On iOS 26+, this modifier:
+- Hides the system tab bar
+- Adds proper safe area spacing for the floating tab bar
+
+On iOS 17-25, it simply applies the `.tag()` modifier.
+
+## Customization Examples
+
+### Icon-Only Tab Bar
+
+```swift
+UnionTabView(selection: $selectedTab, tabs: RootTab.allCases) {
+    // content...
+} item: { tab, isSelected in
+    Image(systemName: tab.icon)
+        .font(.title2)
+        .foregroundStyle(isSelected ? .blue : .gray)
+}
+```
+
+### Animated Selection with Symbol Effects
+
+```swift
+UnionTabView(selection: $selectedTab, tabs: RootTab.allCases) {
+    // content...
+} item: { tab, isSelected in
+    VStack(spacing: 6) {
+        Image(systemName: tab.icon)
+            .font(.system(size: 22))
+            .symbolEffect(.bounce, value: isSelected)
+        
+        Circle()
+            .fill(isSelected ? .blue : .clear)
+            .frame(width: 5, height: 5)
+    }
+    .foregroundStyle(isSelected ? .blue : .secondary)
+}
+```
+
+### Custom Pill Selection Style
+
+```swift
+UnionTabView(selection: $selectedTab, tabs: RootTab.allCases) {
+    // content...
+} item: { tab, isSelected in
+    HStack(spacing: 6) {
+        Image(systemName: tab.icon)
+            .font(.system(size: 18, weight: .semibold))
+        
+        if isSelected {
+            Text(tab.title)
+                .font(.system(size: 14, weight: .semibold))
+        }
+    }
+    .foregroundStyle(isSelected ? .white : .secondary)
+    .padding(.horizontal, isSelected ? 16 : 12)
+    .padding(.vertical, 10)
+    .background {
+        if isSelected {
+            Capsule().fill(.blue.gradient)
+        }
+    }
+}
+```
+
+## Additional Components
+
+### TabItem Protocol
+
+For more structured tab definitions, conform to the `TabItem` protocol:
+
+```swift
+enum MyTab: String, CaseIterable, TabItem {
+    case home = "Home"
+    case settings = "Settings"
+    
+    var symbol: String {
+        switch self {
+        case .home: "house.fill"
+        case .settings: "gearshape.fill"
+        }
+    }
+    
+    var actionSymbol: String {
+        switch self {
+        case .home: "house"
+        case .settings: "gearshape"
+        }
+    }
+}
+```
+
+### GlassTabBar (iOS 26+ Only)
+
+For standalone glass tab bar usage outside of `UnionTabView`:
+
+```swift
+@available(iOS 26, *)
+GlassTabBar(activeTab: $selectedTab) { tab, isSelected in
+    VStack(spacing: 4) {
+        Image(systemName: isSelected ? tab.symbol : tab.actionSymbol)
+            .font(.title3)
+        Text(tab.rawValue)
+            .font(.system(size: 10, weight: .medium))
+    }
+    .foregroundStyle(isSelected ? .primary : .secondary)
+}
+.padding(.horizontal, 20)
+```
+
+### View Modifiers
+
+#### `.blurFade(_:)`
+
+Applies a blur and fade effect based on a boolean:
+
+```swift
+Image(systemName: "star.fill")
+    .blurFade(isVisible)
+```
+
+## Architecture
+
+The package uses a `UISegmentedControl` as the underlying selection mechanism, which provides:
+
+1. **Native sliding animation** - The selection indicator slides smoothly between segments
+2. **Haptic feedback** - System haptics on selection
+3. **Accessibility support** - Full VoiceOver compatibility
+
+The segmented control is styled to be invisible (empty string segments, clear background) while the custom tab item views are rendered on top with `allowsHitTesting(false)`, allowing touch events to pass through to the control.
 
 ## License
 
 MIT
 
+## Author
 
+Union St
