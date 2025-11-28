@@ -42,9 +42,9 @@ public struct AdaptiveTabView<Tab: Hashable, Content: View, TabItemContent: View
         TabView(selection: $selection) {
             content
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        .ignoresSafeArea(edges: .bottom)
+        .overlay(alignment: .bottom) {
             glassTabBar
-                .frame(height: 62)
                 .padding(.horizontal, 20)
                 .padding(.bottom, 21)
         }
@@ -58,14 +58,15 @@ public struct AdaptiveTabView<Tab: Hashable, Content: View, TabItemContent: View
     private var glassTabBar: some View {
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
-                tabItemView(tab, selectedIndex == index)
+                Color.clear
                     .frame(maxWidth: .infinity)
-                    .frame(height: 46)
-                    .clipped()
+                    .overlay {
+                        tabItemView(tab, selectedIndex == index)
+                    }
             }
         }
         .frame(height: 46)
-        .clipped()
+        .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
             GeometryReader { geometry in
@@ -85,7 +86,6 @@ public struct AdaptiveTabView<Tab: Hashable, Content: View, TabItemContent: View
             }
         }
         .padding(4)
-        .frame(height: 54)
         .glassEffect(.regular.interactive(), in: .capsule)
     }
     
