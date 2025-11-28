@@ -13,8 +13,9 @@ public struct AdaptiveTabView<Tab: Hashable, Content: View, TabItemContent: View
     let barTint: Color
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
-    
-    
+
+    @State private var bottomInsets: CGFloat = 0
+
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
@@ -42,11 +43,16 @@ public struct AdaptiveTabView<Tab: Hashable, Content: View, TabItemContent: View
         TabView(selection: $selection) {
             content
         }
-        .ignoresSafeArea(edges: .bottom)
-        .overlay(alignment: .bottom) {
+        .safeAreaInset(edge: .bottom) {
             glassTabBar
+                .ignoresSafeArea()
                 .padding(.horizontal, 20)
-                .padding(.bottom, 21)
+                .padding(.bottom, -bottomInsets + 21)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.safeAreaInsets.bottom
+                } action: { value in
+                    bottomInsets = value
+                }
         }
     }
     
@@ -58,14 +64,12 @@ public struct AdaptiveTabView<Tab: Hashable, Content: View, TabItemContent: View
     private var glassTabBar: some View {
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
-                Color.clear
+                tabItemView(tab, selectedIndex == index)
                     .frame(maxWidth: .infinity)
-                    .overlay {
-                        tabItemView(tab, selectedIndex == index)
-                    }
+                    .padding(.vertical, 4)
             }
         }
-        .frame(height: 46)
+        .frame(height: 54)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
