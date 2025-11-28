@@ -61,13 +61,12 @@ struct ContentView: View {
 
 ### Parameters
 
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `selection` | `Binding<Tab>` | Required | Binding to the currently selected tab |
-| `tabs` | `[Tab]` | Required | Array of all tabs in display order |
-| `barTint` | `Color` | `.gray.opacity(0.15)` | Tint color for the sliding selection indicator |
-| `content` | `@ViewBuilder` | Required | The tab content views |
-| `item` | `@ViewBuilder` | Required | Closure to render each tab item |
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `selection` | `Binding<Tab>` | Binding to the currently selected tab |
+| `tabs` | `[Tab]` | Array of all tabs in display order |
+| `content` | `@ViewBuilder` | The tab content views |
+| `item` | `@ViewBuilder` | Closure to render each tab item |
 
 ### The `.unionTab()` Modifier
 

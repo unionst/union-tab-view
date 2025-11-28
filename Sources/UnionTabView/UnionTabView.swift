@@ -35,7 +35,6 @@ import SwiftUI
 public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: View {
     @Binding var selection: Tab
     let tabs: [Tab]
-    let barTint: Color
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
 
@@ -46,19 +45,16 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     /// - Parameters:
     ///   - selection: A binding to the currently selected tab.
     ///   - tabs: An array of all tabs in display order.
-    ///   - barTint: The tint color for the sliding selection indicator. Defaults to a subtle gray.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
-        barTint: Color = .gray.opacity(0.15),
         @ViewBuilder content: () -> Content,
         @ViewBuilder item: @escaping (Tab, Bool) -> TabItemContent
     ) {
         self._selection = selection
         self.tabs = tabs
-        self.barTint = barTint
         self.content = content()
         self.tabItemView = item
     }
@@ -109,7 +105,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             GeometryReader { geometry in
                 InteractiveSegmentedControl(
                     size: geometry.size,
-                    barTint: barTint,
+                    barTint: .gray.opacity(0.15),
                     selectedIndex: Binding(
                         get: { selectedIndex },
                         set: { newIndex in
