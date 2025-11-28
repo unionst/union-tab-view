@@ -1,4 +1,8 @@
-# UnionTabView
+<h1 align="center">UnionTabView</h1>
+
+<p align="center">
+  <img src="demo.gif" alt="UnionTabView Demo" width="240"/>
+</p>
 
 A SwiftUI package that gives you iOS 26's **Liquid Glass tab bar** with fully custom tab item views.
 
