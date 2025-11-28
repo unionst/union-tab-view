@@ -35,59 +35,21 @@ https://github.com/unionst/union-tab-view.git
 
 ## Usage
 
-### Basic Usage with UnionTabView
-
-The primary component is `UnionTabView`, which wraps your tab content and provides the adaptive tab bar:
-
 ```swift
-import SwiftUI
 import UnionTabView
 
-enum RootTab: Hashable {
-    case home, explore, settings
-    
-    var title: String {
-        switch self {
-        case .home: "Home"
-        case .explore: "Explore"
-        case .settings: "Settings"
-        }
-    }
-    
-    var icon: String {
-        switch self {
-        case .home: "house.fill"
-        case .explore: "safari.fill"
-        case .settings: "gearshape.fill"
-        }
-    }
-}
+enum Tab { case home, settings }
 
 struct ContentView: View {
-    @State private var selectedTab: RootTab = .home
+    @State private var tab: Tab = .home
     
     var body: some View {
-        UnionTabView(
-            selection: $selectedTab,
-            tabs: [.home, .explore, .settings]
-        ) {
-            NavigationStack { HomeView() }
-                .unionTab(RootTab.home)
-            
-            NavigationStack { ExploreView() }
-                .unionTab(RootTab.explore)
-            
-            NavigationStack { SettingsView() }
-                .unionTab(RootTab.settings)
+        UnionTabView(selection: $tab, tabs: [.home, .settings]) {
+            Text("Home").unionTab(Tab.home)
+            Text("Settings").unionTab(Tab.settings)
         } item: { tab, isSelected in
-            VStack(spacing: 4) {
-                Image(systemName: tab.icon)
-                    .font(.system(size: 20, weight: isSelected ? .semibold : .regular))
-                
-                Text(tab.title)
-                    .font(.system(size: 10, weight: .medium))
-            }
-            .foregroundStyle(isSelected ? .primary : .secondary)
+            Image(systemName: tab == .home ? "house.fill" : "gear")
+                .foregroundStyle(isSelected ? .primary : .secondary)
         }
     }
 }
@@ -193,4 +155,4 @@ MIT
 
 ## Author
 
-Union St
+Ben Sage • [Union St](https://unionst.com)
