@@ -23,6 +23,10 @@ On iOS 26, Apple introduced a gorgeous floating glass tab bar with a sliding sel
 
 📚 **[Full API Reference](https://www.swiftipedia.org/documentation/uniontabview)**
 
+### Featured Guides
+
+**[How to Put Profile Pictures in Liquid Glass Tab Bar](https://www.swiftipedia.org/documentation/uniontabview/customviewsinliquidglasstabbars)** - The complete guide to adding custom views, profile pictures, and custom icons to iOS 26's liquid glass tab bar—the limitation Apple doesn't tell you about and how to solve it.
+
 ## Requirements
 
 - iOS 17.0+
