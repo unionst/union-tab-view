@@ -18,3 +18,7 @@ The standard iOS 26 `TabView` only supports system-provided tab items. UnionTabV
 - ``UnionTabView``
 - ``unionTab(_:)``
 
+### Layout
+
+- ``UnionTabLayout``
+

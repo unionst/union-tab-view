@@ -69,8 +69,26 @@ struct ContentView: View {
 |-----------|------|-------------|
 | `selection` | `Binding<Tab>` | Binding to the currently selected tab |
 | `tabs` | `[Tab]` | Array of all tabs in display order |
+| `layout` | `UnionTabLayout` | Controls tab item sizing (default: `.fit`) |
 | `content` | `@ViewBuilder` | The tab content views |
 | `item` | `@ViewBuilder` | Closure to render each tab item |
+
+### Layout Options
+
+The `layout` parameter controls how tab items are sized horizontally:
+
+```swift
+// Content-sized, centered tab bar (default)
+UnionTabView(selection: $tab, tabs: tabs, layout: .fit) { ... }
+
+// Full-width tab bar with equally-spaced items
+UnionTabView(selection: $tab, tabs: tabs, layout: .flexible) { ... }
+```
+
+| Layout | Behavior |
+|--------|----------|
+| `.fit` | Tab bar sizes to fit content with a minimum item width. Centered on screen. |
+| `.flexible` | Tab bar expands to fill available width. Items expand equally. |
 
 ### The `.unionTab()` Modifier
 
