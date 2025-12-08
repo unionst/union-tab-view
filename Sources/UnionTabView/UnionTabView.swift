@@ -37,7 +37,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     let tabs: [Tab]
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
-    let layout: UnionTabLayout
 
     @State private var bottomInsets: CGFloat = 0
 
@@ -46,19 +45,16 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     /// - Parameters:
     ///   - selection: A binding to the currently selected tab.
     ///   - tabs: An array of all tabs in display order.
-    ///   - layout: Controls how tab items are sized. Defaults to `.fit`.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
-        layout: UnionTabLayout = .fit,
         @ViewBuilder content: () -> Content,
         @ViewBuilder item: @escaping (Tab, Bool) -> TabItemContent
     ) {
         self._selection = selection
         self.tabs = tabs
-        self.layout = layout
         self.content = content()
         self.tabItemView = item
     }
@@ -98,11 +94,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
-                    .frame(minWidth: layout == .fit ? 86 : nil, maxWidth: layout == .flexible ? .infinity : nil)
+                    .frame(minWidth: 86)
                     .frame(height: 58)
             }
         }
-        .fixedSize(horizontal: layout == .fit, vertical: false)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
@@ -147,23 +142,14 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
-                    .frame(minWidth: layout == .fit ? 86 : nil, maxWidth: layout == .flexible ? .infinity : nil)
+                    .frame(minWidth: 86)
                     .frame(height: 58)
             }
         }
-        .fixedSize(horizontal: layout == .fit, vertical: false)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .padding(4)
     }
-}
-
-/// Controls how tab items are sized horizontally within the tab bar.
-public enum UnionTabLayout {
-    /// Each tab item is sized to fit its intrinsic content width, with a minimum width.
-    case fit
-    /// Each tab item expands equally to fill the available width.
-    case flexible
 }
 
 @MainActor
