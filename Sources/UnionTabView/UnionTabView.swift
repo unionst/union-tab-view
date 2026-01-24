@@ -70,7 +70,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             legacyBody
         }
     }
-    
+
     @available(iOS 26, *)
     private var iOS26Body: some View {
         TabView(selection: $selection) {
@@ -88,19 +88,18 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 }
         }
     }
-    
+
     private var selectedIndex: Int {
         tabs.firstIndex(of: selection) ?? 0
     }
-    
+
     @available(iOS 26, *)
     private var glassTabBar: some View {
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
-                    .frame(minWidth: 86)
-                    .frame(height: 58)
             }
         }
         .clipShape(Capsule())
@@ -130,7 +129,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         .padding(4)
         .glassEffect(.regular.interactive(), in: .capsule)
     }
-    
+
     private var legacyBody: some View {
         TabView(selection: $selection) {
             content
@@ -152,9 +151,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
-                    .frame(minWidth: 86)
-                    .frame(height: 58)
             }
         }
         .clipShape(Capsule())
