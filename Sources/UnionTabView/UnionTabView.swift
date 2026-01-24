@@ -102,6 +102,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     .padding(.vertical, 4)
             }
         }
+        .frame(height: 54)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
@@ -155,6 +156,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     .padding(.vertical, 4)
             }
         }
+        .frame(height: 54)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .padding(4)
@@ -235,7 +237,7 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
             let segmentWidth = control.bounds.width / CGFloat(control.numberOfSegments)
             let tappedIndex = Int(location.x / segmentWidth)
 
-            // Only call onSelect for same-segment taps (valueChanged handles different segment)
+            // Only call onSelect for same-segment taps (segmentChanged handles different segment)
             if tappedIndex == control.selectedSegmentIndex {
                 parent.onSelect?(tappedIndex)
             }
