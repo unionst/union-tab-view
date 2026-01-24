@@ -37,6 +37,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     let tabs: [Tab]
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
+    let onSelect: ((Tab) -> Void)?
 
     @State private var bottomInsets: CGFloat = 0
 
@@ -47,16 +48,19 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     ///   - tabs: An array of all tabs in display order.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
+    ///   - onSelect: Optional callback that fires on every tab tap (including same-tab taps).
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
         @ViewBuilder content: () -> Content,
-        @ViewBuilder item: @escaping (Tab, Bool) -> TabItemContent
+        @ViewBuilder item: @escaping (Tab, Bool) -> TabItemContent,
+        onSelect: ((Tab) -> Void)? = nil
     ) {
         self._selection = selection
         self.tabs = tabs
         self.content = content()
         self.tabItemView = item
+        self.onSelect = onSelect
     }
 
     public var body: some View {
@@ -66,7 +70,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             legacyBody
         }
     }
-    
+
     @available(iOS 26, *)
     private var iOS26Body: some View {
         TabView(selection: $selection) {
@@ -84,21 +88,21 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 }
         }
     }
-    
+
     private var selectedIndex: Int {
         tabs.firstIndex(of: selection) ?? 0
     }
-    
+
     @available(iOS 26, *)
     private var glassTabBar: some View {
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
-                    .frame(minWidth: 86)
-                    .frame(height: 58)
             }
         }
+        .frame(height: 54)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
@@ -114,14 +118,19 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                             }
                         }
                     ),
-                    itemCount: tabs.count
+                    itemCount: tabs.count,
+                    onSelect: { index in
+                        if index < tabs.count {
+                            onSelect?(tabs[index])
+                        }
+                    }
                 )
             }
         }
         .padding(4)
         .glassEffect(.regular.interactive(), in: .capsule)
     }
-    
+
     private var legacyBody: some View {
         TabView(selection: $selection) {
             content
@@ -143,11 +152,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
+                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 4)
-                    .frame(minWidth: 86)
-                    .frame(height: 58)
             }
         }
+        .frame(height: 54)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .padding(4)
@@ -160,6 +169,7 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
     var barTint: Color
     @Binding var selectedIndex: Int
     var itemCount: Int
+    var onSelect: ((Int) -> Void)?
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -180,13 +190,21 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
         control.selectedSegmentTintColor = UIColor(barTint)
         control.backgroundColor = .clear
-        
+
         control.addTarget(
             context.coordinator,
             action: #selector(Coordinator.segmentChanged(_:)),
             for: .valueChanged
         )
-        
+
+        // Add tap gesture to detect same-segment taps
+        let tapGesture = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap(_:))
+        )
+        tapGesture.cancelsTouchesInView = false
+        control.addGestureRecognizer(tapGesture)
+
         return control
     }
 
@@ -194,6 +212,7 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
         if uiView.selectedSegmentIndex != selectedIndex {
             uiView.selectedSegmentIndex = selectedIndex
         }
+        context.coordinator.parent = self
     }
 
     func sizeThatFits(_ proposal: ProposedViewSize, uiView: UISegmentedControl, context: Context) -> CGSize? {
@@ -209,6 +228,19 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
         @MainActor @objc func segmentChanged(_ control: UISegmentedControl) {
             parent.selectedIndex = control.selectedSegmentIndex
+            parent.onSelect?(control.selectedSegmentIndex)
+        }
+
+        @MainActor @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let control = gesture.view as? UISegmentedControl else { return }
+            let location = gesture.location(in: control)
+            let segmentWidth = control.bounds.width / CGFloat(control.numberOfSegments)
+            let tappedIndex = Int(location.x / segmentWidth)
+
+            // Only call onSelect for same-segment taps (segmentChanged handles different segment)
+            if tappedIndex == control.selectedSegmentIndex {
+                parent.onSelect?(tappedIndex)
+            }
         }
     }
 }
