@@ -36,6 +36,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     @Binding var selection: Tab
     let tabs: [Tab]
     let minimized: Bool
+    let isActionTab: (Tab) -> Bool
+    let onActionTab: ((Tab) -> Void)?
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
 
@@ -52,12 +54,16 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         selection: Binding<Tab>,
         tabs: [Tab],
         minimized: Bool = false,
+        isActionTab: @escaping (Tab) -> Bool = { _ in false },
+        onActionTab: ((Tab) -> Void)? = nil,
         @ViewBuilder content: () -> Content,
         @ViewBuilder item: @escaping (Tab, Bool) -> TabItemContent
     ) {
         self._selection = selection
         self.tabs = tabs
         self.minimized = minimized
+        self.isActionTab = isActionTab
+        self.onActionTab = onActionTab
         self.content = content()
         self.tabItemView = item
     }
@@ -115,7 +121,17 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                                 }
                             }
                         ),
-                        itemCount: tabs.count
+                        itemCount: tabs.count,
+                        // An action tab performs its work without becoming the
+                        // selection, so the indicator must not travel to it.
+                        canSelect: { index in
+                            index < tabs.count && !isActionTab(tabs[index])
+                        },
+                        onRejectedTap: { index in
+                            if index < tabs.count {
+                                onActionTab?(tabs[index])
+                            }
+                        }
                     )
                 }
             }
@@ -185,6 +201,8 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
     var barTint: Color
     @Binding var selectedIndex: Int
     var itemCount: Int
+    var canSelect: (Int) -> Bool = { _ in true }
+    var onRejectedTap: ((Int) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -243,7 +261,17 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
         }
 
         @MainActor @objc func segmentChanged(_ control: UISegmentedControl) {
-            parent.selectedIndex = control.selectedSegmentIndex
+            let index = control.selectedSegmentIndex
+            guard parent.canSelect(index) else {
+                // Put the indicator back before it has a chance to animate.
+                UIView.performWithoutAnimation {
+                    control.selectedSegmentIndex = parent.selectedIndex
+                    control.layoutIfNeeded()
+                }
+                parent.onRejectedTap?(index)
+                return
+            }
+            parent.selectedIndex = index
         }
 
         @MainActor @objc func handleTap(_ gesture: UITapGestureRecognizer) {
@@ -255,6 +283,11 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
             let location = gesture.location(in: control)
             let index = min(control.numberOfSegments - 1, max(0, Int(location.x / segmentWidth)))
+
+            guard parent.canSelect(index) else {
+                parent.onRejectedTap?(index)
+                return
+            }
 
             if index == control.selectedSegmentIndex {
                 parent.selectedIndex = index
