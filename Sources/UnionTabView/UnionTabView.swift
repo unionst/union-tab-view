@@ -128,6 +128,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     }
                 }
                 .frame(maxWidth: CGFloat(tabs.count) * 86)
+                // The overlay covers the padded frame, so it has to take the
+                // same inset as the control beneath it. Without this every item
+                // sits off-centre from its own selection pill.
+                .padding(4)
                 .allowsHitTesting(false)
             }
     }
