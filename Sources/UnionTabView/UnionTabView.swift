@@ -194,7 +194,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     ),
                     itemCount: tabs.count,
                     // An action tab performs its work without becoming the
-                    // selection, so the indicator must not travel to it.
+                    // selection, so the indicator must not travel to it. The
+                    // control is hit-test-dead over these segments; the touch
+                    // falls through to the catcher layered behind it.
+                    actionIndices: Set(tabs.indices.filter { isActionTab(tabs[$0]) }),
                     canSelect: { index in
                         index < tabs.count && !isActionTab(tabs[index])
                     },
@@ -211,11 +214,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 )
             }
         }
-        // The segmented control slides its indicator on touch-down, long before
-        // valueChanged lets us reject the move. Action tabs get a transparent
-        // catcher above the control, so the touch never starts tracking and
-        // the glass never leaves the current tab.
-        .overlay {
+        // Behind the control, so no SwiftUI gesture ever sits above UIKit's
+        // recognizers (an overlay tap catcher broke the reselect gesture).
+        // The control's dead zone lets action-tab touches fall through here.
+        .background {
             HStack(spacing: 0) {
                 ForEach(Array(tabs.enumerated()), id: \.element) { _, tab in
                     if isActionTab(tab) {
@@ -271,12 +273,32 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     }
 }
 
+// Returns nil from hitTest over action segments so the control never begins
+// tracking there: the indicator cannot slide toward a tab that opens a sheet,
+// and the touch falls through to the catcher behind the control.
+final class DeadZoneSegmentedControl: UISegmentedControl {
+    var deadIndices: Set<Int> = []
+
+    override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
+        guard numberOfSegments > 0, bounds.width > 0 else {
+            return super.hitTest(point, with: event)
+        }
+        let segmentWidth = bounds.width / CGFloat(numberOfSegments)
+        let index = min(numberOfSegments - 1, max(0, Int(point.x / segmentWidth)))
+        if deadIndices.contains(index) {
+            return nil
+        }
+        return super.hitTest(point, with: event)
+    }
+}
+
 @MainActor
 struct InteractiveSegmentedControl: UIViewRepresentable {
     var size: CGSize
     var barTint: Color
     @Binding var selectedIndex: Int
     var itemCount: Int
+    var actionIndices: Set<Int> = []
     var canSelect: (Int) -> Bool = { _ in true }
     var onRejectedTap: ((Int) -> Void)? = nil
     var onReselect: ((Int) -> Void)? = nil
@@ -287,7 +309,8 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UISegmentedControl {
         let items = (0..<itemCount).map { _ in "" }
-        let control = UISegmentedControl(items: items)
+        let control = DeadZoneSegmentedControl(items: items)
+        control.deadIndices = actionIndices
         control.selectedSegmentIndex = selectedIndex
 
         DispatchQueue.main.async {
@@ -322,6 +345,7 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
     func updateUIView(_ uiView: UISegmentedControl, context: Context) {
         context.coordinator.parent = self
+        (uiView as? DeadZoneSegmentedControl)?.deadIndices = actionIndices
         if uiView.selectedSegmentIndex != selectedIndex {
             uiView.selectedSegmentIndex = selectedIndex
         }
