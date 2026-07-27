@@ -72,7 +72,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         TabView(selection: $selection) {
             content
         }
-        .safeAreaBar(edge: .bottom) {
+        .safeAreaInset(edge: .bottom) {
             glassTabBar
                 .ignoresSafeArea()
                 .padding(.horizontal, 20)
@@ -270,7 +270,7 @@ public extension View {
             self
                 .toolbarVisibility(.hidden, for: .tabBar)
                 .tag(tab)
-                .safeAreaBar(edge: .bottom) {
+                .safeAreaInset(edge: .bottom) {
                     Text(".")
                         .blendMode(.destinationOver)
                         .frame(height: 55)

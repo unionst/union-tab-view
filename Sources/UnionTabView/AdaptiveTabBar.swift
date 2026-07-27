@@ -150,7 +150,7 @@ extension View {
     @ViewBuilder
     func glassTabBarContentPadding(height: CGFloat? = nil) -> some View {
         if #available(iOS 26, *) {
-            self.safeAreaBar(edge: .bottom, spacing: 0) {
+            self.safeAreaInset(edge: .bottom, spacing: 0) {
                 GlassTabBarSpacer(height: height)
             }
             .toolbarVisibility(.hidden, for: .tabBar)
