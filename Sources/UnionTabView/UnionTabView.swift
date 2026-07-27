@@ -95,10 +95,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
                     .padding(.vertical, 4)
-                    .frame(minWidth: 86)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 58)
             }
         }
+        .frame(maxWidth: CGFloat(tabs.count) * 86)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
@@ -144,10 +145,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                 tabItemView(tab, selectedIndex == index)
                     .padding(.vertical, 4)
-                    .frame(minWidth: 86)
+                    .frame(maxWidth: .infinity)
                     .frame(height: 58)
             }
         }
+        .frame(maxWidth: CGFloat(tabs.count) * 86)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .padding(4)
