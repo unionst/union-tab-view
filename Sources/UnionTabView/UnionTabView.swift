@@ -35,7 +35,7 @@ import SwiftUI
 public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: View {
     @Binding var selection: Tab
     let tabs: [Tab]
-    let minimized: Bool
+    let minimizeProgress: Double
     let isActionTab: (Tab) -> Bool
     let onActionTab: ((Tab) -> Void)?
     let content: Content
@@ -53,7 +53,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
-        minimized: Bool = false,
+        minimizeProgress: Double = 0,
         isActionTab: @escaping (Tab) -> Bool = { _ in false },
         onActionTab: ((Tab) -> Void)? = nil,
         @ViewBuilder content: () -> Content,
@@ -61,17 +61,19 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     ) {
         self._selection = selection
         self.tabs = tabs
-        self.minimized = minimized
+        self.minimizeProgress = minimizeProgress
         self.isActionTab = isActionTab
         self.onActionTab = onActionTab
         self.content = content()
         self.tabItemView = item
     }
 
-    /// Scale applied while minimized, so the bar recedes on scroll without
-    /// changing the space it reserves.
-    private var minimizedScale: CGFloat {
-        minimized ? 0.8 : 1
+    /// Scale applied as the bar minimizes, so it recedes on scroll without
+    /// changing the space it reserves. Tracks progress continuously rather
+    /// than snapping, so a host can tie it to scroll distance.
+    private var minimizeScale: CGFloat {
+        let clamped = min(max(minimizeProgress, 0), 1)
+        return 1 - (0.2 * clamped)
     }
 
     private let barHeight: CGFloat = 58
@@ -108,66 +110,52 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     
     @available(iOS 26, *)
     private var glassTabBar: some View {
-        Color.clear
-            .frame(height: barHeight)
-            .frame(maxWidth: CGFloat(tabs.count) * 86)
-            .background {
-                GeometryReader { geometry in
-                    InteractiveSegmentedControl(
-                        size: geometry.size,
-                        barTint: .gray.opacity(0.15),
-                        selectedIndex: Binding(
-                            get: { selectedIndex },
-                            set: { newIndex in
-                                if newIndex < tabs.count {
-                                    selection = tabs[newIndex]
-                                }
-                            }
-                        ),
-                        itemCount: tabs.count,
-                        // An action tab performs its work without becoming the
-                        // selection, so the indicator must not travel to it.
-                        canSelect: { index in
-                            index < tabs.count && !isActionTab(tabs[index])
-                        },
-                        onRejectedTap: { index in
-                            if index < tabs.count {
-                                onActionTab?(tabs[index])
+        HStack(spacing: 0) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                tabItemView(tab, selectedIndex == index)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: barHeight)
+            }
+        }
+        .frame(maxWidth: CGFloat(tabs.count) * 86)
+        .clipShape(Capsule())
+        .allowsHitTesting(false)
+        .background {
+            GeometryReader { geometry in
+                InteractiveSegmentedControl(
+                    size: geometry.size,
+                    barTint: .gray.opacity(0.15),
+                    selectedIndex: Binding(
+                        get: { selectedIndex },
+                        set: { newIndex in
+                            if newIndex < tabs.count {
+                                selection = tabs[newIndex]
                             }
                         }
-                    )
-                }
-            }
-            .clipShape(Capsule())
-            .padding(4)
-            .glassEffect(.regular.interactive(), in: .capsule)
-            // Tab items are layered on top of the glass rather than inside it.
-            // Content within a glass effect is rendered with vibrancy, which
-            // blends it into the material and washes out whatever colors the
-            // host asked for.
-            .overlay {
-                HStack(spacing: 0) {
-                    ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
-                        tabItemView(tab, selectedIndex == index)
-                            .padding(.vertical, 4)
-                            .frame(maxWidth: .infinity)
-                            .frame(height: barHeight)
+                    ),
+                    itemCount: tabs.count,
+                    // An action tab performs its work without becoming the
+                    // selection, so the indicator must not travel to it.
+                    canSelect: { index in
+                        index < tabs.count && !isActionTab(tabs[index])
+                    },
+                    onRejectedTap: { index in
+                        if index < tabs.count {
+                            onActionTab?(tabs[index])
+                        }
                     }
-                }
-                .frame(maxWidth: CGFloat(tabs.count) * 86)
-                // The overlay covers the padded frame, so it has to take the
-                // same inset as the control beneath it. Without this every item
-                // sits off-centre from its own selection pill.
-                .padding(4)
-                .allowsHitTesting(false)
+                )
             }
-            // Scaling the assembled bar keeps the shrink centred. Resizing it
-            // instead would pin the change to the bottom edge, since that is
-            // where the safe area inset anchors it.
-            .scaleEffect(minimizedScale, anchor: .center)
-            .animation(.spring(duration: 0.3), value: minimized)
+        }
+        .padding(4)
+        .glassEffect(.regular.interactive(), in: .capsule)
+        // Scaling the assembled bar keeps the shrink centred. Resizing it
+        // instead would pin the change to the bottom edge, since that is where
+        // the safe area inset anchors it.
+        .scaleEffect(minimizeScale, anchor: .center)
     }
-    
+
     private var legacyBody: some View {
         TabView(selection: $selection) {
             content
