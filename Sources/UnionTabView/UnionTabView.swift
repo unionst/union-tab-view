@@ -68,10 +68,13 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         self.tabItemView = item
     }
 
-    /// Height of the bar, reduced while minimized so it recedes on scroll.
-    private var barHeight: CGFloat {
-        minimized ? 40 : 58
+    /// Scale applied while minimized, so the bar recedes on scroll without
+    /// changing the space it reserves.
+    private var minimizedScale: CGFloat {
+        minimized ? 0.8 : 1
     }
+
+    private let barHeight: CGFloat = 58
 
     public var body: some View {
         if #available(iOS 26, *) {
@@ -138,7 +141,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             .clipShape(Capsule())
             .padding(4)
             .glassEffect(.regular.interactive(), in: .capsule)
-            .animation(.spring(duration: 0.3), value: minimized)
             // Tab items are layered on top of the glass rather than inside it.
             // Content within a glass effect is rendered with vibrancy, which
             // blends it into the material and washes out whatever colors the
@@ -147,7 +149,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 HStack(spacing: 0) {
                     ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
                         tabItemView(tab, selectedIndex == index)
-                            .scaleEffect(minimized ? 0.8 : 1)
                             .padding(.vertical, 4)
                             .frame(maxWidth: .infinity)
                             .frame(height: barHeight)
@@ -160,6 +161,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 .padding(4)
                 .allowsHitTesting(false)
             }
+            // Scaling the assembled bar keeps the shrink centred. Resizing it
+            // instead would pin the change to the bottom edge, since that is
+            // where the safe area inset anchors it.
+            .scaleEffect(minimizedScale, anchor: .center)
+            .animation(.spring(duration: 0.3), value: minimized)
     }
     
     private var legacyBody: some View {
