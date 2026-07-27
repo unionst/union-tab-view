@@ -144,14 +144,20 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             content
         }
         .overlay(alignment: .bottom) {
-            // The host reserves the bar's clearance as real safe area, which
-            // would push the overlay up by its own height. The bar is the one
-            // view that must NOT respect that inset: it aligns to the physical
-            // bottom edge it floats over.
-            glassTabBar
-                .padding(.horizontal, 20)
-                .padding(.bottom, 21)
-                .ignoresSafeArea(edges: .bottom)
+            // The host reserves the bar's clearance as safe area, which every
+            // layout layer between here and the screen edge is entitled to
+            // apply. Rather than fight those semantics, measure where the
+            // overlay region actually ends and translate the bar down by the
+            // real gap, so its resting place is 21pt off the physical bottom
+            // no matter who insets what.
+            GeometryReader { proxy in
+                let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
+                glassTabBar
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 21)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .offset(y: gap)
+            }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
@@ -219,10 +225,14 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             content
         }
         .overlay(alignment: .bottom) {
-            legacyTabBar
-                .padding(.horizontal, 20)
-                .padding(.bottom, 28)
-                .ignoresSafeArea(edges: .bottom)
+            GeometryReader { proxy in
+                let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
+                legacyTabBar
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 28)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                    .offset(y: gap)
+            }
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
