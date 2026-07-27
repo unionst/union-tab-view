@@ -160,17 +160,6 @@ extension View {
     }
 }
 
-@available(iOS 26, *)
-extension View {
-    func safeAreaBar<Content: View>(
-        edge: VerticalEdge,
-        spacing: CGFloat? = nil,
-        @ViewBuilder content: () -> Content
-    ) -> some View {
-        self.safeAreaInset(edge: edge, spacing: spacing, content: content)
-    }
-}
-
 #if DEBUG
 @available(iOS 26, *)
 #Preview("Adaptive Tab Bar - Default") {

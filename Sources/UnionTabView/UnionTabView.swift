@@ -72,7 +72,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         TabView(selection: $selection) {
             content
         }
-        .safeAreaInset(edge: .bottom) {
+        .safeAreaBar(edge: .bottom) {
             glassTabBar
                 .ignoresSafeArea()
                 .padding(.horizontal, 20)
