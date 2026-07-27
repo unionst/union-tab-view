@@ -144,9 +144,14 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             content
         }
         .overlay(alignment: .bottom) {
+            // The host reserves the bar's clearance as real safe area, which
+            // would push the overlay up by its own height. The bar is the one
+            // view that must NOT respect that inset: it aligns to the physical
+            // bottom edge it floats over.
             glassTabBar
                 .padding(.horizontal, 20)
                 .padding(.bottom, 21)
+                .ignoresSafeArea(edges: .bottom)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
@@ -217,6 +222,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             legacyTabBar
                 .padding(.horizontal, 20)
                 .padding(.bottom, 28)
+                .ignoresSafeArea(edges: .bottom)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
