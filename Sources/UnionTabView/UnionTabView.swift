@@ -32,8 +32,18 @@ import SwiftUI
 ///     }
 /// }
 /// ```
-/// Geometry shared between the bar and the space each tab reserves for it, so
-/// content is never inset by a different amount than the bar actually occupies.
+/// Geometry of the bar, for hosts to compute the clearance they reserve.
+///
+/// The bar itself reserves no space: it is an overlay pinned to the bottom of
+/// the screen. The host should reserve clearance once, as real UIKit safe area,
+/// so every scroll surface — SwiftUI or UIKit — inherits it automatically:
+///
+/// ```swift
+/// rootViewController.additionalSafeAreaInsets.bottom =
+///     UnionTabBarMetrics.height(contentHeight: barContentHeight)
+///     + breathingRoom
+///     - window.safeAreaInsets.bottom
+/// ```
 public enum UnionTabBarMetrics {
     /// Height of the row of tab items when the host does not specify one.
     public static let contentHeight: CGFloat = 58
@@ -62,8 +72,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     let onReselect: ((Tab) -> Void)?
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
-
-    @State private var bottomInsets: CGFloat = 0
 
     /// Creates an adaptive tab view with custom tab item rendering.
     ///
@@ -124,25 +132,22 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         }
     }
     
+    // The bar is a pure overlay pinned to the physical bottom of the screen: it
+    // reserves nothing. The host owns the reservation, as real UIKit safe area
+    // (additionalSafeAreaInsets on the root view controller), so UIKit scroll
+    // views and SwiftUI views inherit the same clearance through one mechanism
+    // instead of the bar inventing a SwiftUI-only inset that dies at every
+    // representable boundary.
     @available(iOS 26, *)
     private var iOS26Body: some View {
         TabView(selection: $selection) {
             content
         }
-        .safeAreaInset(edge: .bottom) {
+        .overlay(alignment: .bottom) {
             glassTabBar
-                .ignoresSafeArea()
                 .padding(.horizontal, 20)
-                .padding(.bottom, -bottomInsets + 21)
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.safeAreaInsets.bottom
-                } action: { value in
-                    bottomInsets = value
-                }
+                .padding(.bottom, 21)
         }
-        // The keyboard grows the bottom safe area, which would carry the bar up
-        // with it. Placement of the inset is the parent's call, so the parent is
-        // what has to disregard the keyboard.
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
     
@@ -208,16 +213,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         TabView(selection: $selection) {
             content
         }
-        .safeAreaInset(edge: .bottom) {
+        .overlay(alignment: .bottom) {
             legacyTabBar
-                .ignoresSafeArea()
                 .padding(.horizontal, 20)
-                .padding(.bottom, -bottomInsets + 28)
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.safeAreaInsets.bottom
-                } action: { value in
-                    bottomInsets = value
-                }
+                .padding(.bottom, 28)
         }
         .ignoresSafeArea(.keyboard, edges: .bottom)
     }
@@ -362,11 +361,6 @@ public extension View {
             self
                 .toolbarVisibility(.hidden, for: .tabBar)
                 .tag(tab)
-                .safeAreaInset(edge: .bottom) {
-                    Text(".")
-                        .blendMode(.destinationOver)
-                        .frame(height: UnionTabBarMetrics.height)
-                }
         } else {
             self.tag(tab)
         }
