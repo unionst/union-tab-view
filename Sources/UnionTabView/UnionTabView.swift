@@ -188,7 +188,17 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
             action: #selector(Coordinator.segmentChanged(_:)),
             for: .valueChanged
         )
-        
+
+        // valueChanged never fires when the current segment is tapped again, so
+        // a re-tap would be swallowed. Hosts rely on it to pop to root or
+        // scroll to top, so it is reported through a gesture instead.
+        let reselect = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleTap(_:))
+        )
+        reselect.cancelsTouchesInView = false
+        control.addGestureRecognizer(reselect)
+
         return control
     }
 
@@ -211,6 +221,21 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
         @MainActor @objc func segmentChanged(_ control: UISegmentedControl) {
             parent.selectedIndex = control.selectedSegmentIndex
+        }
+
+        @MainActor @objc func handleTap(_ gesture: UITapGestureRecognizer) {
+            guard let control = gesture.view as? UISegmentedControl,
+                  control.numberOfSegments > 0 else { return }
+
+            let segmentWidth = control.bounds.width / CGFloat(control.numberOfSegments)
+            guard segmentWidth > 0 else { return }
+
+            let location = gesture.location(in: control)
+            let index = min(control.numberOfSegments - 1, max(0, Int(location.x / segmentWidth)))
+
+            if index == control.selectedSegmentIndex {
+                parent.selectedIndex = index
+            }
         }
     }
 }
