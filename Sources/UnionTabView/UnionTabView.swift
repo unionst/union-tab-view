@@ -91,36 +91,45 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     
     @available(iOS 26, *)
     private var glassTabBar: some View {
-        HStack(spacing: 0) {
-            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
-                tabItemView(tab, selectedIndex == index)
-                    .padding(.vertical, 4)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: 58)
-            }
-        }
-        .frame(maxWidth: CGFloat(tabs.count) * 86)
-        .clipShape(Capsule())
-        .allowsHitTesting(false)
-        .background {
-            GeometryReader { geometry in
-                InteractiveSegmentedControl(
-                    size: geometry.size,
-                    barTint: .gray.opacity(0.15),
-                    selectedIndex: Binding(
-                        get: { selectedIndex },
-                        set: { newIndex in
-                            if newIndex < tabs.count {
-                                selection = tabs[newIndex]
+        Color.clear
+            .frame(height: 58)
+            .frame(maxWidth: CGFloat(tabs.count) * 86)
+            .background {
+                GeometryReader { geometry in
+                    InteractiveSegmentedControl(
+                        size: geometry.size,
+                        barTint: .gray.opacity(0.15),
+                        selectedIndex: Binding(
+                            get: { selectedIndex },
+                            set: { newIndex in
+                                if newIndex < tabs.count {
+                                    selection = tabs[newIndex]
+                                }
                             }
-                        }
-                    ),
-                    itemCount: tabs.count
-                )
+                        ),
+                        itemCount: tabs.count
+                    )
+                }
             }
-        }
-        .padding(4)
-        .glassEffect(.regular.interactive(), in: .capsule)
+            .clipShape(Capsule())
+            .padding(4)
+            .glassEffect(.regular.interactive(), in: .capsule)
+            // Tab items are layered on top of the glass rather than inside it.
+            // Content within a glass effect is rendered with vibrancy, which
+            // blends it into the material and washes out whatever colors the
+            // host asked for.
+            .overlay {
+                HStack(spacing: 0) {
+                    ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                        tabItemView(tab, selectedIndex == index)
+                            .padding(.vertical, 4)
+                            .frame(maxWidth: .infinity)
+                            .frame(height: 58)
+                    }
+                }
+                .frame(maxWidth: CGFloat(tabs.count) * 86)
+                .allowsHitTesting(false)
+            }
     }
     
     private var legacyBody: some View {
