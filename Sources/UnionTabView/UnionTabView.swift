@@ -32,6 +32,17 @@ import SwiftUI
 ///     }
 /// }
 /// ```
+/// Geometry shared between the bar and the space each tab reserves for it, so
+/// content is never inset by a different amount than the bar actually occupies.
+public enum UnionTabBarMetrics {
+    /// Height of the row of tab items.
+    public static let contentHeight: CGFloat = 58
+    /// Inset between that row and the edge of the glass capsule.
+    public static let padding: CGFloat = 4
+    /// Full height of the bar at rest, which is what a tab must reserve.
+    public static var height: CGFloat { contentHeight + (padding * 2) }
+}
+
 public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: View {
     @Binding var selection: Tab
     let tabs: [Tab]
@@ -76,7 +87,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         return 1 - (0.2 * clamped)
     }
 
-    private let barHeight: CGFloat = 58
+    private let barHeight = UnionTabBarMetrics.contentHeight
 
     public var body: some View {
         if #available(iOS 26, *) {
@@ -148,7 +159,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 )
             }
         }
-        .padding(4)
+        .padding(UnionTabBarMetrics.padding)
         .glassEffect(.regular.interactive(), in: .capsule)
         // Scaling the assembled bar keeps the shrink centred. Resizing it
         // instead would pin the change to the bottom edge, since that is where
@@ -314,7 +325,7 @@ public extension View {
                 .safeAreaInset(edge: .bottom) {
                     Text(".")
                         .blendMode(.destinationOver)
-                        .frame(height: 55)
+                        .frame(height: UnionTabBarMetrics.height)
                 }
         } else {
             self.tag(tab)
