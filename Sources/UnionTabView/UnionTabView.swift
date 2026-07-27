@@ -35,18 +35,28 @@ import SwiftUI
 /// Geometry shared between the bar and the space each tab reserves for it, so
 /// content is never inset by a different amount than the bar actually occupies.
 public enum UnionTabBarMetrics {
-    /// Height of the row of tab items.
+    /// Height of the row of tab items when the host does not specify one.
     public static let contentHeight: CGFloat = 58
     /// Inset between that row and the edge of the glass capsule.
     public static let padding: CGFloat = 4
     /// Full height of the bar at rest, which is what a tab must reserve.
     public static var height: CGFloat { contentHeight + (padding * 2) }
+
+    /// Full height of a bar built with a specific item-row height.
+    ///
+    /// Hosts that pass `contentHeight:` to `UnionTabView` should inset their own
+    /// scroll content by this, not by ``height``, or the two disagree.
+    public static func height(contentHeight: CGFloat) -> CGFloat {
+        contentHeight + (padding * 2)
+    }
 }
 
 public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: View {
     @Binding var selection: Tab
     let tabs: [Tab]
     let minimizeProgress: Double
+    let contentHeight: CGFloat
+    let minimizeAnimation: Animation?
     let isActionTab: (Tab) -> Bool
     let onActionTab: ((Tab) -> Void)?
     let content: Content
@@ -59,12 +69,20 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     /// - Parameters:
     ///   - selection: A binding to the currently selected tab.
     ///   - tabs: An array of all tabs in display order.
+    ///   - contentHeight: Height of the row of tab items. Defaults to
+    ///     ``UnionTabBarMetrics/contentHeight``. Hosts that pass a custom value must
+    ///     inset their scroll content by `UnionTabBarMetrics.height(contentHeight:)`.
+    ///   - minimizeAnimation: Animation applied when `minimizeProgress` changes, so the
+    ///     bar grows back rather than snapping when a tab is tapped. Pass `nil` to drive
+    ///     the change yourself.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
         minimizeProgress: Double = 0,
+        contentHeight: CGFloat = UnionTabBarMetrics.contentHeight,
+        minimizeAnimation: Animation? = .spring(duration: 0.3),
         isActionTab: @escaping (Tab) -> Bool = { _ in false },
         onActionTab: ((Tab) -> Void)? = nil,
         @ViewBuilder content: () -> Content,
@@ -73,6 +91,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         self._selection = selection
         self.tabs = tabs
         self.minimizeProgress = minimizeProgress
+        self.contentHeight = contentHeight
+        self.minimizeAnimation = minimizeAnimation
         self.isActionTab = isActionTab
         self.onActionTab = onActionTab
         self.content = content()
@@ -87,7 +107,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         return 1 - (0.2 * clamped)
     }
 
-    private let barHeight = UnionTabBarMetrics.contentHeight
+    private var barHeight: CGFloat { contentHeight }
 
     public var body: some View {
         if #available(iOS 26, *) {
@@ -169,6 +189,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         // instead would pin the change to the bottom edge, since that is where
         // the safe area inset anchors it.
         .scaleEffect(minimizeScale, anchor: .center)
+        .animation(minimizeAnimation, value: minimizeProgress)
     }
 
     private var legacyBody: some View {
@@ -195,7 +216,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 tabItemView(tab, selectedIndex == index)
                     .padding(.vertical, 4)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 58)
+                    .frame(height: barHeight)
             }
         }
         .frame(maxWidth: CGFloat(tabs.count) * 86)
