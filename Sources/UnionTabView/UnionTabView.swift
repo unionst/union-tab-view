@@ -113,6 +113,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     bottomInsets = value
                 }
         }
+        // The keyboard grows the bottom safe area, which would carry the bar up
+        // with it. Placement of the inset is the parent's call, so the parent is
+        // what has to disregard the keyboard.
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
     
     private var selectedIndex: Int {
@@ -182,6 +186,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     bottomInsets = value
                 }
         }
+        .ignoresSafeArea(.keyboard, edges: .bottom)
     }
 
     private var legacyTabBar: some View {
