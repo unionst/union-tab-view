@@ -59,6 +59,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     let minimizeAnimation: Animation?
     let isActionTab: (Tab) -> Bool
     let onActionTab: ((Tab) -> Void)?
+    let onReselect: ((Tab) -> Void)?
     let content: Content
     let tabItemView: (Tab, Bool) -> TabItemContent
 
@@ -75,6 +76,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     ///   - minimizeAnimation: Animation applied when `minimizeProgress` changes, so the
     ///     bar grows back rather than snapping when a tab is tapped. Pass `nil` to drive
     ///     the change yourself.
+    ///   - onReselect: Called when the already-selected tab is tapped again. Reported
+    ///     as its own event rather than as a write of the current selection, so a host
+    ///     that pops to root or scrolls to top cannot be tricked into doing it by an
+    ///     unrelated write to the binding.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
     public init(
@@ -85,6 +90,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         minimizeAnimation: Animation? = .spring(duration: 0.3),
         isActionTab: @escaping (Tab) -> Bool = { _ in false },
         onActionTab: ((Tab) -> Void)? = nil,
+        onReselect: ((Tab) -> Void)? = nil,
         @ViewBuilder content: () -> Content,
         @ViewBuilder item: @escaping (Tab, Bool) -> TabItemContent
     ) {
@@ -95,6 +101,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         self.minimizeAnimation = minimizeAnimation
         self.isActionTab = isActionTab
         self.onActionTab = onActionTab
+        self.onReselect = onReselect
         self.content = content()
         self.tabItemView = item
     }
@@ -179,6 +186,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                         if index < tabs.count {
                             onActionTab?(tabs[index])
                         }
+                    },
+                    onReselect: { index in
+                        if index < tabs.count {
+                            onReselect?(tabs[index])
+                        }
                     }
                 )
             }
@@ -234,6 +246,7 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
     var itemCount: Int
     var canSelect: (Int) -> Bool = { _ in true }
     var onRejectedTap: ((Int) -> Void)? = nil
+    var onReselect: ((Int) -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
@@ -275,6 +288,7 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
     }
 
     func updateUIView(_ uiView: UISegmentedControl, context: Context) {
+        context.coordinator.parent = self
         if uiView.selectedSegmentIndex != selectedIndex {
             uiView.selectedSegmentIndex = selectedIndex
         }
@@ -302,9 +316,15 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
                 parent.onRejectedTap?(index)
                 return
             }
+            // Restoring the indicator can echo back as a change to the index the
+            // control already sat on, which would reach the host as a fresh
+            // selection of the tab it is already showing. Only a real move writes.
+            guard index != parent.selectedIndex else { return }
             parent.selectedIndex = index
         }
 
+        // valueChanged never fires when the current segment is tapped again, so
+        // the re-tap is recognized here and reported as its own event.
         @MainActor @objc func handleTap(_ gesture: UITapGestureRecognizer) {
             guard let control = gesture.view as? UISegmentedControl,
                   control.numberOfSegments > 0 else { return }
@@ -315,14 +335,8 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
             let location = gesture.location(in: control)
             let index = min(control.numberOfSegments - 1, max(0, Int(location.x / segmentWidth)))
 
-            guard parent.canSelect(index) else {
-                parent.onRejectedTap?(index)
-                return
-            }
-
-            if index == control.selectedSegmentIndex {
-                parent.selectedIndex = index
-            }
+            guard parent.canSelect(index), index == parent.selectedIndex else { return }
+            parent.onReselect?(index)
         }
     }
 }
