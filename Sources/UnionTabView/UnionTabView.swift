@@ -211,6 +211,24 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 )
             }
         }
+        // The segmented control slides its indicator on touch-down, long before
+        // valueChanged lets us reject the move. Action tabs get a transparent
+        // catcher above the control, so the touch never starts tracking and
+        // the glass never leaves the current tab.
+        .overlay {
+            HStack(spacing: 0) {
+                ForEach(Array(tabs.enumerated()), id: \.element) { _, tab in
+                    if isActionTab(tab) {
+                        Color.clear
+                            .contentShape(.rect)
+                            .onTapGesture { onActionTab?(tab) }
+                    } else {
+                        Color.clear
+                            .allowsHitTesting(false)
+                    }
+                }
+            }
+        }
         .padding(UnionTabBarMetrics.padding)
         .glassEffect(.regular.interactive(), in: .capsule)
         // Scaling the assembled bar keeps the shrink centred. Resizing it
