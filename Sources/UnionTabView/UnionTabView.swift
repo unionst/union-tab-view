@@ -66,6 +66,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     let tabs: [Tab]
     let minimizeProgress: Double
     let contentHeight: CGFloat
+    let glassTint: Color?
     let minimizeAnimation: Animation?
     let isActionTab: (Tab) -> Bool
     let onActionTab: ((Tab) -> Void)?
@@ -81,6 +82,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     ///   - contentHeight: Height of the row of tab items. Defaults to
     ///     ``UnionTabBarMetrics/contentHeight``. Hosts that pass a custom value must
     ///     inset their scroll content by `UnionTabBarMetrics.height(contentHeight:)`.
+    ///   - glassTint: Optional tint applied to the Liquid Glass capsule on iOS 26+,
+    ///     for hosts that want the bar darker or colored in a given appearance.
     ///   - minimizeAnimation: Animation applied when `minimizeProgress` changes, so the
     ///     bar grows back rather than snapping when a tab is tapped. Pass `nil` to drive
     ///     the change yourself.
@@ -95,6 +98,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         tabs: [Tab],
         minimizeProgress: Double = 0,
         contentHeight: CGFloat = UnionTabBarMetrics.contentHeight,
+        glassTint: Color? = nil,
         minimizeAnimation: Animation? = .spring(duration: 0.3),
         isActionTab: @escaping (Tab) -> Bool = { _ in false },
         onActionTab: ((Tab) -> Void)? = nil,
@@ -106,6 +110,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         self.tabs = tabs
         self.minimizeProgress = minimizeProgress
         self.contentHeight = contentHeight
+        self.glassTint = glassTint
         self.minimizeAnimation = minimizeAnimation
         self.isActionTab = isActionTab
         self.onActionTab = onActionTab
@@ -165,7 +170,14 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     private var selectedIndex: Int {
         tabs.firstIndex(of: selection) ?? 0
     }
-    
+
+    @available(iOS 26, *)
+    private var barGlass: Glass {
+        let base: Glass = glassTint.map { .regular.tint($0) } ?? .regular
+        return base.interactive()
+    }
+
+
     @available(iOS 26, *)
     private var glassTabBar: some View {
         HStack(spacing: 0) {
@@ -232,7 +244,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             }
         }
         .padding(UnionTabBarMetrics.padding)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .glassEffect(barGlass, in: .capsule)
         // Scaling the assembled bar keeps the shrink centred. Resizing it
         // instead would pin the change to the bottom edge, since that is where
         // the safe area inset anchors it.
