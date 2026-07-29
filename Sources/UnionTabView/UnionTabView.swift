@@ -48,7 +48,7 @@ public enum UnionTabBarMetrics {
     /// Height of the row of tab items when the host does not specify one.
     public static let contentHeight: CGFloat = 58
     /// Inset between that row and the edge of the glass capsule.
-    public static let padding: CGFloat = 4
+    public static let padding: CGFloat = 14.0 / 3.0
     /// Full height of the bar at rest, which is what a tab must reserve.
     public static var height: CGFloat { contentHeight + (padding * 2) }
 
@@ -119,7 +119,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     /// than snapping, so a host can tie it to scroll distance.
     private var minimizeScale: CGFloat {
         let clamped = min(max(minimizeProgress, 0), 1)
-        return 1 - (0.2 * clamped)
+        return 1 - ((1 - 152.0 / 180.0) * clamped)
     }
 
     private var barHeight: CGFloat { contentHeight }
@@ -148,13 +148,13 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             // layout layer between here and the screen edge is entitled to
             // apply. Rather than fight those semantics, measure where the
             // overlay region actually ends and translate the bar down by the
-            // real gap, so its resting place is 21pt off the physical bottom
+            // real gap, so its resting place is 22pt off the physical bottom
             // no matter who insets what.
             GeometryReader { proxy in
                 let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
                 glassTabBar
-                    .padding(.horizontal, 20)
-                    .padding(.bottom, 21)
+                    .padding(.horizontal, 22)
+                    .padding(.bottom, 22)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .offset(y: gap)
             }
