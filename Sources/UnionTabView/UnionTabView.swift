@@ -49,12 +49,10 @@ public enum UnionTabBarMetrics {
     public static let contentHeight: CGFloat = 58
     /// Inset between that row and the edge of the glass capsule.
     public static let padding: CGFloat = 14.0 / 3.0
-    /// Inset between the selected item's pill and the sides of its slot. Narrows
-    /// the capsule so it sits around the icon rather than across the whole slot.
-    public static let selectionHorizontalInset: CGFloat = 14
-    /// Inset between the pill and the top and bottom of the row. Small, so the
-    /// pill fills the bar's height instead of floating inside it.
-    public static let selectionVerticalInset: CGFloat = 4
+    /// Inset between the selected item's pill and the sides of its slot.
+    public static let selectionHorizontalInset: CGFloat = 2
+    /// Inset between the pill and the top and bottom of the row.
+    public static let selectionVerticalInset: CGFloat = 2
     /// Full height of the bar at rest, which is what a tab must reserve.
     public static var height: CGFloat { contentHeight + (padding * 2) }
 
