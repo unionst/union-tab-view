@@ -49,8 +49,12 @@ public enum UnionTabBarMetrics {
     public static let contentHeight: CGFloat = 58
     /// Inset between that row and the edge of the glass capsule.
     public static let padding: CGFloat = 14.0 / 3.0
-    /// Inset between the selected item's pill and the edges of its slot.
-    public static let selectionInset: CGFloat = 9
+    /// Inset between the selected item's pill and the sides of its slot. Narrows
+    /// the capsule so it sits around the icon rather than across the whole slot.
+    public static let selectionHorizontalInset: CGFloat = 14
+    /// Inset between the pill and the top and bottom of the row. Small, so the
+    /// pill fills the bar's height instead of floating inside it.
+    public static let selectionVerticalInset: CGFloat = 4
     /// Full height of the bar at rest, which is what a tab must reserve.
     public static var height: CGFloat { contentHeight + (padding * 2) }
 
@@ -206,10 +210,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 Capsule()
                     .fill(Color.gray.opacity(0.15))
                     .frame(
-                        width: max(0, itemWidth - UnionTabBarMetrics.selectionInset * 2),
-                        height: max(0, geometry.size.height - UnionTabBarMetrics.selectionInset * 2)
+                        width: max(0, itemWidth - UnionTabBarMetrics.selectionHorizontalInset * 2),
+                        height: max(0, geometry.size.height - UnionTabBarMetrics.selectionVerticalInset * 2)
                     )
-                    .offset(x: CGFloat(selectedIndex) * itemWidth + UnionTabBarMetrics.selectionInset)
+                    .offset(x: CGFloat(selectedIndex) * itemWidth + UnionTabBarMetrics.selectionHorizontalInset)
                     .frame(maxHeight: .infinity, alignment: .center)
                     .animation(.spring(duration: 0.3), value: selectedIndex)
 
