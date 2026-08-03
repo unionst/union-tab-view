@@ -225,6 +225,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     }
                 )
             }
+            // The selected indicator is the control's own bounds inset by a fixed
+            // UIKit margin, so the pill only sits tighter around the icon if the
+            // control does. Inset here rather than shrink the row, which would
+            // move every item.
+            .padding(2)
         }
         // Behind the control, so no SwiftUI gesture ever sits above UIKit's
         // recognizers (an overlay tap catcher broke the reselect gesture).
