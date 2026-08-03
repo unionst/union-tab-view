@@ -49,6 +49,8 @@ public enum UnionTabBarMetrics {
     public static let contentHeight: CGFloat = 58
     /// Inset between that row and the edge of the glass capsule.
     public static let padding: CGFloat = 14.0 / 3.0
+    /// Inset between the selected item's pill and the edges of its slot.
+    public static let selectionInset: CGFloat = 9
     /// Full height of the bar at rest, which is what a tab must reserve.
     public static var height: CGFloat { contentHeight + (padding * 2) }
 
@@ -193,9 +195,27 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         .allowsHitTesting(false)
         .background {
             GeometryReader { geometry in
+                // The pill is drawn here rather than left to the control's own
+                // selected-segment indicator, which is the control's bounds
+                // inset by a fixed UIKit margin and so can only be made to hug
+                // the icon by shrinking the control -- which would move the
+                // touch targets with it. This keeps the control full size and
+                // hit-testable and puts the pill's size in one constant.
+                let itemWidth = geometry.size.width / CGFloat(max(tabs.count, 1))
+
+                Capsule()
+                    .fill(Color.gray.opacity(0.15))
+                    .frame(
+                        width: max(0, itemWidth - UnionTabBarMetrics.selectionInset * 2),
+                        height: max(0, geometry.size.height - UnionTabBarMetrics.selectionInset * 2)
+                    )
+                    .offset(x: CGFloat(selectedIndex) * itemWidth + UnionTabBarMetrics.selectionInset)
+                    .frame(maxHeight: .infinity, alignment: .center)
+                    .animation(.spring(duration: 0.3), value: selectedIndex)
+
                 InteractiveSegmentedControl(
                     size: geometry.size,
-                    barTint: .gray.opacity(0.15),
+                    barTint: .clear,
                     selectedIndex: Binding(
                         get: { selectedIndex },
                         set: { newIndex in
@@ -225,11 +245,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                     }
                 )
             }
-            // The selected indicator is the control's own bounds inset by a fixed
-            // UIKit margin, so the pill only sits tighter around the icon if the
-            // control does. Inset here rather than shrink the row, which would
-            // move every item.
-            .padding(2)
         }
         // Behind the control, so no SwiftUI gesture ever sits above UIKit's
         // recognizers (an overlay tap catcher broke the reselect gesture).
