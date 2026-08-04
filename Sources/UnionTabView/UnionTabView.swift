@@ -59,12 +59,18 @@ public enum UnionTabBarMetrics {
     public static func height(contentHeight: CGFloat) -> CGFloat {
         contentHeight + (padding * 2)
     }
+
+    /// Distance the bar rests above the physical bottom of the screen. A host
+    /// stacking its own chrome on top of the bar needs this to work out how far
+    /// the whole assembly has to travel to clear the screen.
+    public static let restingBottomInset: CGFloat = 22
 }
 
 public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: View {
     @Binding var selection: Tab
     let tabs: [Tab]
     let minimizeProgress: Double
+    let hideOffset: CGFloat
     let contentHeight: CGFloat
     let glassTint: Color?
     let minimizeAnimation: Animation?
@@ -93,10 +99,16 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     ///     unrelated write to the binding.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
+    ///   - hideOffset: Points to translate the bar down by, for hosts that would
+    ///     rather send it off the bottom of the screen than shrink it in place.
+    ///     A host with its own chrome stacked above the bar passes the same value
+    ///     to both so the whole assembly leaves together. Independent of
+    ///     `minimizeProgress`; pass 0 to that to suppress the shrink entirely.
     public init(
         selection: Binding<Tab>,
         tabs: [Tab],
         minimizeProgress: Double = 0,
+        hideOffset: CGFloat = 0,
         contentHeight: CGFloat = UnionTabBarMetrics.contentHeight,
         glassTint: Color? = nil,
         minimizeAnimation: Animation? = .spring(duration: 0.3),
@@ -109,6 +121,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         self._selection = selection
         self.tabs = tabs
         self.minimizeProgress = minimizeProgress
+        self.hideOffset = hideOffset
         self.contentHeight = contentHeight
         self.glassTint = glassTint
         self.minimizeAnimation = minimizeAnimation
@@ -159,7 +172,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                 let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
                 glassTabBar
                     .padding(.horizontal, 22)
-                    .padding(.bottom, 22)
+                    .padding(.bottom, UnionTabBarMetrics.restingBottomInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
                     .offset(y: gap)
             }
@@ -250,6 +263,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         // the safe area inset anchors it.
         .scaleEffect(minimizeScale, anchor: .center)
         .animation(minimizeAnimation, value: minimizeProgress)
+        // Applied outside the scale so the two are independent: a host can shrink
+        // the bar, send it off the bottom, or neither.
+        .offset(y: hideOffset)
+        .animation(minimizeAnimation, value: hideOffset)
     }
 
     private var legacyBody: some View {
@@ -282,6 +299,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .padding(4)
+        .offset(y: hideOffset)
+        .animation(minimizeAnimation, value: hideOffset)
     }
 }
 
