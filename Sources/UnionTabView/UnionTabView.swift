@@ -71,6 +71,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     let tabs: [Tab]
     let minimizeProgress: Double
     let hideOffset: CGFloat
+    let motion: UnionTabBarMotion?
     let contentHeight: CGFloat
     let glassTint: Color?
     let minimizeAnimation: Animation?
@@ -99,6 +100,10 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     ///     unrelated write to the binding.
     ///   - content: A view builder that provides the content for each tab. Apply `.unionTab(_:)` to each.
     ///   - item: A view builder closure called for each tab, receiving the tab value and whether it's selected.
+    ///   - motion: A source the bar follows for its travel off the bottom, for
+    ///     hosts that write the offset at frame rate. Routed through this object
+    ///     each write invalidates only the bar's own offset wrapper; supplied,
+    ///     it takes precedence over `hideOffset`.
     ///   - hideOffset: Points to translate the bar down by, for hosts that would
     ///     rather send it off the bottom of the screen than shrink it in place.
     ///     A host with its own chrome stacked above the bar passes the same value
@@ -109,6 +114,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         tabs: [Tab],
         minimizeProgress: Double = 0,
         hideOffset: CGFloat = 0,
+        motion: UnionTabBarMotion? = nil,
         contentHeight: CGFloat = UnionTabBarMetrics.contentHeight,
         glassTint: Color? = nil,
         minimizeAnimation: Animation? = .spring(duration: 0.3),
@@ -122,6 +128,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         self.tabs = tabs
         self.minimizeProgress = minimizeProgress
         self.hideOffset = hideOffset
+        self.motion = motion
         self.contentHeight = contentHeight
         self.glassTint = glassTint
         self.minimizeAnimation = minimizeAnimation
@@ -170,7 +177,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             // no matter who insets what.
             GeometryReader { proxy in
                 let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
-                glassTabBar
+                BarTravel(motion: motion, staticOffset: hideOffset, animation: minimizeAnimation, bar: glassTabBar)
                     .padding(.horizontal, 22)
                     .padding(.bottom, UnionTabBarMetrics.restingBottomInset)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -263,10 +270,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         // the safe area inset anchors it.
         .scaleEffect(minimizeScale, anchor: .center)
         .animation(minimizeAnimation, value: minimizeProgress)
-        // Applied outside the scale so the two are independent: a host can shrink
-        // the bar, send it off the bottom, or neither.
-        .offset(y: hideOffset)
-        .animation(minimizeAnimation, value: hideOffset)
     }
 
     private var legacyBody: some View {
@@ -276,7 +279,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         .overlay(alignment: .bottom) {
             GeometryReader { proxy in
                 let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
-                legacyTabBar
+                BarTravel(motion: motion, staticOffset: hideOffset, animation: minimizeAnimation, bar: legacyTabBar)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 28)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
@@ -299,8 +302,36 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .padding(4)
-        .offset(y: hideOffset)
-        .animation(minimizeAnimation, value: hideOffset)
+    }
+}
+
+/// A per-frame motion source for the bar's travel off the bottom of the
+/// screen. A host following a finger writes `hideOffset` as often as every
+/// frame; routed through this object, each write invalidates only the bar's
+/// own offset wrapper. Passed through the host's body as a plain value, the
+/// same writes re-evaluate the host's entire scene at the display's refresh
+/// rate -- which is how the bar's travel was costing whole-app relayouts.
+@MainActor
+@Observable
+public final class UnionTabBarMotion {
+    public var hideOffset: CGFloat = 0
+
+    public init() {}
+}
+
+/// The one view that observes the motion source, so a frame-rate write moves
+/// the bar and touches nothing else.
+private struct BarTravel<Bar: View>: View {
+    let motion: UnionTabBarMotion?
+    let staticOffset: CGFloat
+    let animation: Animation?
+    let bar: Bar
+
+    var body: some View {
+        let offset = motion?.hideOffset ?? staticOffset
+        bar
+            .offset(y: offset)
+            .animation(animation, value: offset)
     }
 }
 
