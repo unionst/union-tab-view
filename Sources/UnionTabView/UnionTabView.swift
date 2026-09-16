@@ -516,9 +516,20 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
         if let slotIndex, slotIndex < uiView.numberOfSegments {
             let width = max(0.5, slotWidth)
             if abs(uiView.widthForSegment(at: slotIndex) - width) > 0.01 {
-                UIView.performWithoutAnimation {
-                    uiView.setWidth(width, forSegmentAt: slotIndex)
-                    uiView.layoutIfNeeded()
+                // A write inside an animated transaction is the slot settling
+                // to one end, and the indicator has to arrive with the items
+                // around it rather than ahead of them. Every other write is a
+                // finger mid-scroll, and follows it exactly.
+                if context.transaction.animation != nil {
+                    UIView.animate(springDuration: 0.2, bounce: 0) {
+                        uiView.setWidth(width, forSegmentAt: slotIndex)
+                        uiView.layoutIfNeeded()
+                    }
+                } else {
+                    UIView.performWithoutAnimation {
+                        uiView.setWidth(width, forSegmentAt: slotIndex)
+                        uiView.layoutIfNeeded()
+                    }
                 }
             }
         }
