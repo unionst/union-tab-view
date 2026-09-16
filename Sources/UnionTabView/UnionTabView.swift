@@ -198,17 +198,37 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     }
 
 
+    /// Where the centre slot opens: after the first half of the tabs, so an
+    /// even count splits evenly and an odd one leaves the larger half leading.
+    private var centerSlotIndex: Int { (tabs.count + 1) / 2 }
+
     @available(iOS 26, *)
     private var glassTabBar: some View {
+        CenterSlotRow(motion: motion) { slotWidth in
+            glassTabBar(slotWidth: slotWidth)
+        }
+    }
+
+    /// The bar with its centre slot held open by `slotWidth`. The slot is a
+    /// gap in the row of items that a host can fill with chrome of its own,
+    /// such as the sleeve of what is playing once its dock has stepped aside;
+    /// its frame is reported back through the motion source so the host can
+    /// land something on it exactly. A hairline stands in when it is shut so
+    /// the item row and the control behind it always agree on the layout.
+    @available(iOS 26, *)
+    private func glassTabBar(slotWidth: CGFloat) -> some View {
         HStack(spacing: 0) {
             ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                if index == centerSlotIndex {
+                    centerSlot(width: slotWidth)
+                }
                 tabItemView(tab, selectedIndex == index)
                     .padding(.vertical, 4)
                     .frame(maxWidth: .infinity)
                     .frame(height: barHeight)
             }
         }
-        .frame(maxWidth: CGFloat(tabs.count) * 86)
+        .frame(maxWidth: CGFloat(tabs.count) * 86 + slotWidth)
         .clipShape(Capsule())
         .allowsHitTesting(false)
         .background {
@@ -225,6 +245,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
                         }
                     ),
                     itemCount: tabs.count,
+                    slotIndex: motion == nil ? nil : centerSlotIndex,
+                    slotWidth: slotWidth,
                     // An action tab performs its work without becoming the
                     // selection, so the indicator must not travel to it. The
                     // control is hit-test-dead over these segments; the touch
@@ -251,7 +273,12 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         // The control's dead zone lets action-tab touches fall through here.
         .background {
             HStack(spacing: 0) {
-                ForEach(Array(tabs.enumerated()), id: \.element) { _, tab in
+                ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                    if index == centerSlotIndex {
+                        Color.clear
+                            .frame(width: slotWidth)
+                            .allowsHitTesting(false)
+                    }
                     if isActionTab(tab) {
                         Color.clear
                             .contentShape(.rect)
@@ -270,6 +297,17 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         // the safe area inset anchors it.
         .scaleEffect(minimizeScale, anchor: .center)
         .animation(minimizeAnimation, value: minimizeProgress)
+    }
+
+    @available(iOS 26, *)
+    private func centerSlot(width: CGFloat) -> some View {
+        Color.clear
+            .frame(width: width, height: barHeight)
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global)
+            } action: { frame in
+                motion?.centerSlotFrame = frame
+            }
     }
 
     private var legacyBody: some View {
@@ -316,7 +354,29 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
 public final class UnionTabBarMotion {
     public var hideOffset: CGFloat = 0
 
+    /// How wide the gap in the middle of the item row stands. Zero keeps the
+    /// row as it was; a host opening the slot writes this at frame rate the
+    /// same way it writes `hideOffset`, and the items make room.
+    public var centerSlotWidth: CGFloat = 0
+
+    /// Where the centre slot sits on screen, in global coordinates, written by
+    /// the bar as it lays out. A host lands its own chrome on this frame.
+    public var centerSlotFrame: CGRect = .zero
+
     public init() {}
+}
+
+/// The one view that observes the slot width, so a frame-rate write reshapes
+/// the item row and re-evaluates nothing above it. Shut, the slot is a
+/// hairline rather than nothing: the row and the control behind it lay out
+/// the same segments either way, so nothing shifts the moment it opens.
+private struct CenterSlotRow<Row: View>: View {
+    let motion: UnionTabBarMotion?
+    let row: (CGFloat) -> Row
+
+    var body: some View {
+        row(motion.map { max(0.5, $0.centerSlotWidth) } ?? 0)
+    }
 }
 
 /// The one view that observes the motion source, so a frame-rate write moves
@@ -345,12 +405,29 @@ final class DeadZoneSegmentedControl: UISegmentedControl {
         guard numberOfSegments > 0, bounds.width > 0 else {
             return super.hitTest(point, with: event)
         }
-        let segmentWidth = bounds.width / CGFloat(numberOfSegments)
-        let index = min(numberOfSegments - 1, max(0, Int(point.x / segmentWidth)))
-        if deadIndices.contains(index) {
+        if deadIndices.contains(segmentIndex(atX: point.x)) {
             return nil
         }
         return super.hitTest(point, with: event)
+    }
+
+    /// The segment under an x position, honouring fixed widths: a segment
+    /// given a width keeps it and the rest share what is left, exactly as the
+    /// control lays them out.
+    func segmentIndex(atX x: CGFloat) -> Int {
+        let count = numberOfSegments
+        guard count > 0 else { return 0 }
+        let fixed = (0..<count).map { widthForSegment(at: $0) }
+        let fixedTotal = fixed.reduce(0, +)
+        let autoCount = fixed.filter { $0 == 0 }.count
+        let autoWidth = autoCount > 0 ? max(0, bounds.width - fixedTotal) / CGFloat(autoCount) : 0
+        var cursor: CGFloat = 0
+        for index in 0..<count {
+            let width = fixed[index] == 0 ? autoWidth : fixed[index]
+            if x < cursor + width { return index }
+            cursor += width
+        }
+        return count - 1
     }
 }
 
@@ -360,20 +437,48 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
     var barTint: Color
     @Binding var selectedIndex: Int
     var itemCount: Int
+    // The centre slot is one more segment, fixed to the slot's width and dead
+    // to touches, so the indicator and the hit regions stay aligned with the
+    // items around the gap. Item indices are the host's; the control's own
+    // indices step over the slot.
+    var slotIndex: Int? = nil
+    var slotWidth: CGFloat = 0
     var actionIndices: Set<Int> = []
     var canSelect: (Int) -> Bool = { _ in true }
     var onRejectedTap: ((Int) -> Void)? = nil
     var onReselect: ((Int) -> Void)? = nil
+
+    private var segmentCount: Int { itemCount + (slotIndex == nil ? 0 : 1) }
+
+    func controlIndex(forItem item: Int) -> Int {
+        guard let slotIndex else { return item }
+        return item >= slotIndex ? item + 1 : item
+    }
+
+    func itemIndex(forControl index: Int) -> Int? {
+        guard let slotIndex else { return index }
+        if index == slotIndex { return nil }
+        return index > slotIndex ? index - 1 : index
+    }
+
+    private var deadControlIndices: Set<Int> {
+        var dead = Set(actionIndices.map(controlIndex(forItem:)))
+        if let slotIndex { dead.insert(slotIndex) }
+        return dead
+    }
 
     func makeCoordinator() -> Coordinator {
         Coordinator(parent: self)
     }
 
     func makeUIView(context: Context) -> UISegmentedControl {
-        let items = (0..<itemCount).map { _ in "" }
+        let items = (0..<segmentCount).map { _ in "" }
         let control = DeadZoneSegmentedControl(items: items)
-        control.deadIndices = actionIndices
-        control.selectedSegmentIndex = selectedIndex
+        control.deadIndices = deadControlIndices
+        if let slotIndex {
+            control.setWidth(max(0.5, slotWidth), forSegmentAt: slotIndex)
+        }
+        control.selectedSegmentIndex = controlIndex(forItem: selectedIndex)
 
         DispatchQueue.main.async {
             for subview in control.subviews {
@@ -407,9 +512,19 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
 
     func updateUIView(_ uiView: UISegmentedControl, context: Context) {
         context.coordinator.parent = self
-        (uiView as? DeadZoneSegmentedControl)?.deadIndices = actionIndices
-        if uiView.selectedSegmentIndex != selectedIndex {
-            uiView.selectedSegmentIndex = selectedIndex
+        (uiView as? DeadZoneSegmentedControl)?.deadIndices = deadControlIndices
+        if let slotIndex, slotIndex < uiView.numberOfSegments {
+            let width = max(0.5, slotWidth)
+            if abs(uiView.widthForSegment(at: slotIndex) - width) > 0.01 {
+                UIView.performWithoutAnimation {
+                    uiView.setWidth(width, forSegmentAt: slotIndex)
+                    uiView.layoutIfNeeded()
+                }
+            }
+        }
+        let selected = controlIndex(forItem: selectedIndex)
+        if uiView.selectedSegmentIndex != selected {
+            uiView.selectedSegmentIndex = selected
         }
     }
 
@@ -425,14 +540,14 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
         }
 
         @MainActor @objc func segmentChanged(_ control: UISegmentedControl) {
-            let index = control.selectedSegmentIndex
-            guard parent.canSelect(index) else {
+            let index = parent.itemIndex(forControl: control.selectedSegmentIndex)
+            guard let index, parent.canSelect(index) else {
                 // Put the indicator back before it has a chance to animate.
                 UIView.performWithoutAnimation {
-                    control.selectedSegmentIndex = parent.selectedIndex
+                    control.selectedSegmentIndex = parent.controlIndex(forItem: parent.selectedIndex)
                     control.layoutIfNeeded()
                 }
-                parent.onRejectedTap?(index)
+                if let index { parent.onRejectedTap?(index) }
                 return
             }
             // Restoring the indicator can echo back as a change to the index the
@@ -445,14 +560,11 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
         // valueChanged never fires when the current segment is tapped again, so
         // the re-tap is recognized here and reported as its own event.
         @MainActor @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard let control = gesture.view as? UISegmentedControl,
-                  control.numberOfSegments > 0 else { return }
-
-            let segmentWidth = control.bounds.width / CGFloat(control.numberOfSegments)
-            guard segmentWidth > 0 else { return }
+            guard let control = gesture.view as? DeadZoneSegmentedControl,
+                  control.numberOfSegments > 0, control.bounds.width > 0 else { return }
 
             let location = gesture.location(in: control)
-            let index = min(control.numberOfSegments - 1, max(0, Int(location.x / segmentWidth)))
+            guard let index = parent.itemIndex(forControl: control.segmentIndex(atX: location.x)) else { return }
 
             guard parent.canSelect(index), index == parent.selectedIndex else { return }
             parent.onReselect?(index)
