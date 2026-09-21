@@ -60,16 +60,8 @@ struct SegmentedControlTabBar<Tab: TabItem>: UIViewRepresentable {
 
     func makeUIView(context: Context) -> UISegmentedControl {
         let items = Tab.allCases.compactMap { _ in "" }
-        let control = UISegmentedControl(items: items)
+        let control = TracklessSegmentedControl(items: items)
         control.selectedSegmentIndex = activeTab.index
-
-        DispatchQueue.main.async {
-            for subview in control.subviews {
-                if subview is UIImageView && subview != control.subviews.last {
-                    subview.alpha = 0
-                }
-            }
-        }
 
         control.selectedSegmentTintColor = UIColor(barTint)
         control.backgroundColor = .clear

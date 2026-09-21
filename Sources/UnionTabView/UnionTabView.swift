@@ -398,7 +398,7 @@ private struct BarTravel<Bar: View>: View {
 // Returns nil from hitTest over action segments so the control never begins
 // tracking there: the indicator cannot slide toward a tab that opens a sheet,
 // and the touch falls through to the catcher behind the control.
-final class DeadZoneSegmentedControl: UISegmentedControl {
+final class DeadZoneSegmentedControl: TracklessSegmentedControl {
     var deadIndices: Set<Int> = []
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
@@ -479,14 +479,6 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
             control.setWidth(max(0.5, slotWidth), forSegmentAt: slotIndex)
         }
         control.selectedSegmentIndex = controlIndex(forItem: selectedIndex)
-
-        DispatchQueue.main.async {
-            for subview in control.subviews {
-                if subview is UIImageView && subview != control.subviews.last {
-                    subview.alpha = 0
-                }
-            }
-        }
 
         control.selectedSegmentTintColor = UIColor(barTint)
         control.backgroundColor = .clear
