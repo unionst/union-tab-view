@@ -193,7 +193,8 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
 
     @available(iOS 26, *)
     private var barGlass: Glass {
-        glassTint.map { .regular.tint($0) } ?? .regular
+        let base: Glass = glassTint.map { .regular.tint($0) } ?? .regular
+        return base.interactive()
     }
 
 
@@ -399,6 +400,27 @@ private struct BarTravel<Bar: View>: View {
 // and the touch falls through to the catcher behind the control.
 final class DeadZoneSegmentedControl: TracklessSegmentedControl {
     var deadIndices: Set<Int> = []
+    var onReselect: ((Int) -> Void)?
+
+    // The selection commits on touch down, as a tab bar's does. The glass
+    // around the control has a press gesture of its own, and on iOS 27 it
+    // claims a quick touch before the control's own touch-up selection runs:
+    // the capsule flashed and the indicator stayed put. Nothing that happens
+    // to the touch after this point can take the switch back.
+    override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
+        if let touch = touches.first, numberOfSegments > 0, bounds.width > 0 {
+            let index = segmentIndex(atX: touch.location(in: self).x)
+            if !deadIndices.contains(index) {
+                if index != selectedSegmentIndex {
+                    selectedSegmentIndex = index
+                    sendActions(for: .valueChanged)
+                } else {
+                    onReselect?(index)
+                }
+            }
+        }
+        super.touchesBegan(touches, with: event)
+    }
 
     override func hitTest(_ point: CGPoint, with event: UIEvent?) -> UIView? {
         guard numberOfSegments > 0, bounds.width > 0 else {
@@ -488,15 +510,12 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
             for: .valueChanged
         )
 
-        // valueChanged never fires when the current segment is tapped again, so
-        // a re-tap would be swallowed. Hosts rely on it to pop to root or
-        // scroll to top, so it is reported through a gesture instead.
-        let reselect = UITapGestureRecognizer(
-            target: context.coordinator,
-            action: #selector(Coordinator.handleTap(_:))
-        )
-        reselect.cancelsTouchesInView = false
-        control.addGestureRecognizer(reselect)
+        // valueChanged never fires when the current segment is touched again,
+        // so the control reports the re-tap itself. Hosts rely on it to pop to
+        // root or scroll to top.
+        control.onReselect = { [coordinator = context.coordinator] index in
+            coordinator.reselected(controlIndex: index)
+        }
 
         return control
     }
@@ -559,16 +578,9 @@ struct InteractiveSegmentedControl: UIViewRepresentable {
             parent.selectedIndex = index
         }
 
-        // valueChanged never fires when the current segment is tapped again, so
-        // the re-tap is recognized here and reported as its own event.
-        @MainActor @objc func handleTap(_ gesture: UITapGestureRecognizer) {
-            guard let control = gesture.view as? DeadZoneSegmentedControl,
-                  control.numberOfSegments > 0, control.bounds.width > 0 else { return }
-
-            let location = gesture.location(in: control)
-            guard let index = parent.itemIndex(forControl: control.segmentIndex(atX: location.x)) else { return }
-
-            guard parent.canSelect(index), index == parent.selectedIndex else { return }
+        @MainActor func reselected(controlIndex: Int) {
+            guard let index = parent.itemIndex(forControl: controlIndex),
+                  parent.canSelect(index), index == parent.selectedIndex else { return }
             parent.onReselect?(index)
         }
     }
