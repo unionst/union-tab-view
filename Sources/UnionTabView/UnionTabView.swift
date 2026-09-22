@@ -193,8 +193,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
 
     @available(iOS 26, *)
     private var barGlass: Glass {
-        let base: Glass = glassTint.map { .regular.tint($0) } ?? .regular
-        return base.interactive()
+        glassTint.map { .regular.tint($0) } ?? .regular
     }
 
 
