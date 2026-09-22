@@ -6,16 +6,6 @@ class TracklessSegmentedControl: UISegmentedControl {
         hideTrack()
     }
 
-    override func didAddSubview(_ subview: UIView) {
-        super.didAddSubview(subview)
-        setNeedsLayout()
-    }
-
-    override func tintColorDidChange() {
-        super.tintColorDidChange()
-        setNeedsLayout()
-    }
-
     private func hideTrack() {
         let indicator = subviews.last
         for subview in subviews where subview is UIImageView && subview !== indicator {
