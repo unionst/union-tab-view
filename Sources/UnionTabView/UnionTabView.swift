@@ -292,6 +292,11 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         }
         .padding(UnionTabBarMetrics.padding)
         .glassEffect(barGlass, in: .capsule)
+        .onGeometryChange(for: CGRect.self) { proxy in
+            proxy.frame(in: .global)
+        } action: { frame in
+            motion?.barFrame = frame
+        }
         // Scaling the assembled bar keeps the shrink centred. Resizing it
         // instead would pin the change to the bottom edge, since that is where
         // the safe area inset anchors it.
@@ -362,6 +367,11 @@ public final class UnionTabBarMotion {
     /// Where the centre slot sits on screen, in global coordinates, written by
     /// the bar as it lays out. A host lands its own chrome on this frame.
     public var centerSlotFrame: CGRect = .zero
+
+    /// Where the glass capsule itself sits on screen, in global coordinates,
+    /// written by the bar as it lays out. A host grows its own chrome out of
+    /// this frame.
+    public var barFrame: CGRect = .zero
 
     public init() {}
 }
