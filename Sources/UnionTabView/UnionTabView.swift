@@ -217,20 +217,15 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
     /// the item row and the control behind it always agree on the layout.
     @available(iOS 26, *)
     private func glassTabBar(slotWidth: CGFloat) -> some View {
-        HStack(spacing: 0) {
-            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
-                if index == centerSlotIndex {
-                    centerSlot(width: slotWidth)
-                }
-                tabItemView(tab, selectedIndex == index)
-                    .padding(.vertical, 4)
-                    .frame(maxWidth: .infinity)
-                    .frame(height: barHeight)
-            }
-        }
-        .frame(maxWidth: CGFloat(tabs.count) * 86 + slotWidth)
-        .clipShape(Capsule())
-        .allowsHitTesting(false)
+        UnionTabBarRow(
+            tabs: tabs,
+            selectedIndex: selectedIndex,
+            slotIndex: centerSlotIndex,
+            slotWidth: slotWidth,
+            contentHeight: barHeight,
+            onSlotFrame: { frame in motion?.centerSlotFrame = frame },
+            item: tabItemView
+        )
         .background {
             GeometryReader { geometry in
                 InteractiveSegmentedControl(
@@ -304,17 +299,6 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         .animation(minimizeAnimation, value: minimizeProgress)
     }
 
-    @available(iOS 26, *)
-    private func centerSlot(width: CGFloat) -> some View {
-        Color.clear
-            .frame(width: width, height: barHeight)
-            .onGeometryChange(for: CGRect.self) { proxy in
-                proxy.frame(in: .global)
-            } action: { frame in
-                motion?.centerSlotFrame = frame
-            }
-    }
-
     private var legacyBody: some View {
         TabView(selection: $selection) {
             content
@@ -373,6 +357,11 @@ public final class UnionTabBarMotion {
     /// this frame.
     public var barFrame: CGRect = .zero
 
+    /// True while a host's own copy of the bar stands in its place, as when
+    /// chrome grows out of the bar's frame: the bar itself is not drawn, so
+    /// the copy is the one bar on screen.
+    public var isCovered = false
+
     public init() {}
 }
 
@@ -400,8 +389,107 @@ private struct BarTravel<Bar: View>: View {
     var body: some View {
         let offset = motion?.hideOffset ?? staticOffset
         bar
+            .opacity(motion?.isCovered == true ? 0 : 1)
             .offset(y: offset)
             .animation(animation, value: offset)
+    }
+}
+
+/// The row of tab items as the bar lays it out: the items share the width
+/// left by the centre slot, and the slot reports where it landed.
+@available(iOS 26, *)
+struct UnionTabBarRow<Tab: Hashable, ItemView: View>: View {
+    let tabs: [Tab]
+    let selectedIndex: Int
+    let slotIndex: Int
+    let slotWidth: CGFloat
+    let contentHeight: CGFloat
+    let onSlotFrame: ((CGRect) -> Void)?
+    let item: (Tab, Bool) -> ItemView
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(Array(tabs.enumerated()), id: \.element) { index, tab in
+                if index == slotIndex {
+                    slot
+                }
+                item(tab, selectedIndex == index)
+                    .padding(.vertical, 4)
+                    .frame(maxWidth: .infinity)
+                    .frame(height: contentHeight)
+            }
+        }
+        .frame(maxWidth: CGFloat(tabs.count) * 86 + slotWidth)
+        .clipShape(Capsule())
+        .allowsHitTesting(false)
+    }
+
+    private var slot: some View {
+        Color.clear
+            .frame(width: slotWidth, height: contentHeight)
+            .onGeometryChange(for: CGRect.self) { proxy in
+                proxy.frame(in: .global)
+            } action: { frame in
+                onSlotFrame?(frame)
+            }
+    }
+}
+
+/// The bar's face without the glass around it: the item row with its centre
+/// slot open and the selection drawn behind the selected item, laid out
+/// exactly as the bar lays out its own. A host that grows chrome of its own
+/// out of the bar draws this inside that chrome while the bar is covered, so
+/// the bar reads as becoming it. It takes no touches.
+@available(iOS 26, *)
+public struct UnionTabBarFace<Tab: Hashable, ItemView: View>: View {
+    let tabs: [Tab]
+    let selection: Tab
+    let slotWidth: CGFloat
+    let contentHeight: CGFloat
+    let barTint: Color
+    let item: (Tab, Bool) -> ItemView
+
+    public init(
+        tabs: [Tab],
+        selection: Tab,
+        slotWidth: CGFloat,
+        contentHeight: CGFloat = UnionTabBarMetrics.contentHeight,
+        barTint: Color = .gray.opacity(0.15),
+        @ViewBuilder item: @escaping (Tab, Bool) -> ItemView
+    ) {
+        self.tabs = tabs
+        self.selection = selection
+        self.slotWidth = slotWidth
+        self.contentHeight = contentHeight
+        self.barTint = barTint
+        self.item = item
+    }
+
+    public var body: some View {
+        let selectedIndex = tabs.firstIndex(of: selection) ?? 0
+        let slotIndex = (tabs.count + 1) / 2
+        UnionTabBarRow(
+            tabs: tabs,
+            selectedIndex: selectedIndex,
+            slotIndex: slotIndex,
+            slotWidth: slotWidth,
+            contentHeight: contentHeight,
+            onSlotFrame: nil,
+            item: item
+        )
+        .background {
+            GeometryReader { geometry in
+                InteractiveSegmentedControl(
+                    size: geometry.size,
+                    barTint: barTint,
+                    selectedIndex: .constant(selectedIndex),
+                    itemCount: tabs.count,
+                    slotIndex: slotIndex,
+                    slotWidth: slotWidth
+                )
+            }
+        }
+        .allowsHitTesting(false)
     }
 }
 
