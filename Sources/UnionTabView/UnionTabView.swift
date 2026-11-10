@@ -176,7 +176,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
             // real gap, so its resting place is 22pt off the physical bottom
             // no matter who insets what.
             GeometryReader { proxy in
-                let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
+                let gap = UnionTabBarWindow.height - proxy.frame(in: .global).maxY
                 BarTravel(motion: motion, staticOffset: hideOffset, animation: minimizeAnimation, bar: glassTabBar)
                     .padding(.horizontal, 22)
                     .padding(.bottom, UnionTabBarMetrics.restingBottomInset)
@@ -305,7 +305,7 @@ public struct UnionTabView<Tab: Hashable, Content: View, TabItemContent: View>: 
         }
         .overlay(alignment: .bottom) {
             GeometryReader { proxy in
-                let gap = UIScreen.main.bounds.height - proxy.frame(in: .global).maxY
+                let gap = UnionTabBarWindow.height - proxy.frame(in: .global).maxY
                 BarTravel(motion: motion, staticOffset: hideOffset, animation: minimizeAnimation, bar: legacyTabBar)
                     .padding(.horizontal, 20)
                     .padding(.bottom, 28)
